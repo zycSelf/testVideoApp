@@ -14,9 +14,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  console.log(inter)
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body>
+        <main className='flex flex-1 flex-col'>
+          <div className='flex justify-center items-center h-20 border-b border-black border-solid'>
+            header
+          </div>
+          <div className="mainControlArea flex-1">
+            {children}
+          </div>
+        </main>
+      </body>
     </html>
   )
 }
