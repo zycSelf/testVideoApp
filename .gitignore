@@ -34,4 +34,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/public
+/public/core
+/public/testVideo
+/public/wasm
