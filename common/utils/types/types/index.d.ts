@@ -106,6 +106,4 @@ export interface FFmpegCoreModule {
 /**
  * Factory of FFmpegCoreModule.
  */
-export type FFmpegCoreModuleFactory = (
-  moduleOverrides?: Partial<FFmpegCoreModule>
-) => Promise<FFmpegCoreModule>;
+export type FFmpegCoreModuleFactory = (moduleOverrides?: Partial<FFmpegCoreModule>) => Promise<FFmpegCoreModule>;

@@ -1,9 +1,6 @@
-import {
-  ERROR_RESPONSE_BODY_READER,
-  ERROR_INCOMPLETED_DOWNLOAD,
-} from "./errors";
-import { HeaderContentLength } from "./const";
-import { ProgressCallback } from "./types";
+import { ERROR_RESPONSE_BODY_READER, ERROR_INCOMPLETED_DOWNLOAD } from './errors';
+import { HeaderContentLength } from './const';
+import { ProgressCallback } from './types';
 
 const readFromBlobOrFile = (blob: Blob | File): Promise<Uint8Array> =>
   new Promise((resolve, reject) => {
@@ -17,11 +14,7 @@ const readFromBlobOrFile = (blob: Blob | File): Promise<Uint8Array> =>
       }
     };
     fileReader.onerror = (event) => {
-      reject(
-        Error(
-          `File could not be read! Code=${event?.target?.error?.code || -1}`
-        )
-      );
+      reject(Error(`File could not be read! Code=${event?.target?.error?.code || -1}`));
     };
     fileReader.readAsArrayBuffer(blob);
   });
@@ -46,16 +39,14 @@ const readFromBlobOrFile = (blob: Blob | File): Promise<Uint8Array> =>
  * await fetchFile(blob);
  * ```
  */
-export const fetchFile = async (
-  file?: string | File | Blob
-): Promise<Uint8Array> => {
+export const fetchFile = async (file?: string | File | Blob): Promise<Uint8Array> => {
   let data: ArrayBuffer | number[];
 
-  if (typeof file === "string") {
+  if (typeof file === 'string') {
     /* From base64 format */
     if (/data:_data\/([a-zA-Z]*);base64,([^"]*)/.test(file)) {
-      data = atob(file.split(",")[1])
-        .split("")
+      data = atob(file.split(',')[1])
+        .split('')
         .map((c) => c.charCodeAt(0));
       /* From remote server/URL */
     } else {
@@ -84,15 +75,15 @@ export const fetchFile = async (
  */
 export const importScript = async (url: string): Promise<void> =>
   new Promise((resolve) => {
-    const script = document.createElement("script");
+    const script = document.createElement('script');
     const eventHandler = () => {
-      script.removeEventListener("load", eventHandler);
+      script.removeEventListener('load', eventHandler);
       resolve();
     };
     script.src = url;
-    script.type = "text/javascript";
-    script.addEventListener("load", eventHandler);
-    document.getElementsByTagName("head")[0].appendChild(script);
+    script.type = 'text/javascript';
+    script.addEventListener('load', eventHandler);
+    document.getElementsByTagName('head')[0].appendChild(script);
   });
 
 /**
@@ -101,21 +92,18 @@ export const importScript = async (url: string): Promise<void> =>
  * Progress only works when Content-Length is provided by the server.
  *
  */
-export const downloadWithProgress = async (
-  url: string | URL,
-  cb?: ProgressCallback
-): Promise<ArrayBuffer> => {
+export const downloadWithProgress = async (url: string | URL, cb?: ProgressCallback): Promise<ArrayBuffer> => {
   const resp = await fetch(url);
   let buf;
 
   try {
     // Set total to -1 to indicate that there is not Content-Type Header.
-    const total = parseInt(resp.headers.get(HeaderContentLength) || "-1");
+    const total = parseInt(resp.headers.get(HeaderContentLength) || '-1');
 
     const reader = resp.body?.getReader();
     if (!reader) throw ERROR_RESPONSE_BODY_READER;
 
-    const chunks:Uint8Array[] = [];
+    const chunks: Uint8Array[] = [];
     let received = 0;
     for (;;) {
       const { done, value } = await reader.read();
@@ -170,11 +158,9 @@ export const toBlobURL = async (
   url: string,
   mimeType: string,
   progress = false,
-  cb?: ProgressCallback
+  cb?: ProgressCallback,
 ): Promise<string> => {
-  const buf = progress
-    ? await downloadWithProgress(url, cb)
-    : await (await fetch(url)).arrayBuffer();
+  const buf = progress ? await downloadWithProgress(url, cb) : await (await fetch(url)).arrayBuffer();
   const blob = new Blob([buf], { type: mimeType });
   return URL.createObjectURL(blob);
 };

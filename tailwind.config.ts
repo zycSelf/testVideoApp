@@ -1,4 +1,4 @@
-import type { Config } from 'tailwindcss'
+import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: [
@@ -8,19 +8,22 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      flexGrow:{
-        2:"2",
+      colors: {
+        basicBgColor: '#252528',
+        picDisplay: 'rgb(51,51,54)',
       },
-      spacing:{
+      flexGrow: {
+        2: '2',
+      },
+      spacing: {
         '128': '32rem',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-conic':
-          'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
       },
     },
   },
   plugins: [],
-}
-export default config
+};
+export default config;

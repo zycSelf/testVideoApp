@@ -1,4 +1,4 @@
-import { FFMessageType } from "./const";
+import { FFMessageType } from './const';
 import {
   CallbackData,
   Callbacks,
@@ -15,9 +15,9 @@ import {
   FileData,
   FFMessageKeyFrameListData,
   FFMessageVideoBasicParams,
-} from "./types";
-import { getMessageID } from "./utils";
-import { ERROR_TERMINATED, ERROR_NOT_LOADED } from "./errors";
+} from './types';
+import { getMessageID } from './utils';
+import { ERROR_TERMINATED, ERROR_NOT_LOADED } from './errors';
 
 /**
  * Provides APIs to interact with ffmpeg web worker.
@@ -46,9 +46,7 @@ export class FFmpeg {
    */
   #registerHandlers = () => {
     if (this.#worker) {
-      this.#worker.onmessage = ({
-        data: { id, type, data },
-      }: FFMessageEventCallback) => {
+      this.#worker.onmessage = ({ data: { id, type, data } }: FFMessageEventCallback) => {
         switch (type) {
           case FFMessageType.LOAD:
             this.loaded = true;
@@ -77,9 +75,7 @@ export class FFmpeg {
             this.#logEventCallbacks.forEach((f) => f(data as LogEvent));
             break;
           case FFMessageType.PROGRESS:
-            this.#progressEventCallbacks.forEach((f) =>
-              f(data as ProgressEvent)
-            );
+            this.#progressEventCallbacks.forEach((f) => f(data as ProgressEvent));
             break;
           case FFMessageType.ERROR:
             this.#rejects[id](data);
@@ -94,10 +90,7 @@ export class FFmpeg {
   /**
    * Generic function to send messages to web worker.
    */
-  #send = (
-    { type, data }: Message,
-    trans: Transferable[] = []
-  ): Promise<CallbackData> => {
+  #send = ({ type, data }: Message, trans: Transferable[] = []): Promise<CallbackData> => {
     if (!this.#worker) {
       return Promise.reject(ERROR_NOT_LOADED);
     }
@@ -134,15 +127,12 @@ export class FFmpeg {
    *
    * @category FFmpeg
    */
-  public on(event: "log", callback: LogEventCallback): void;
-  public on(event: "progress", callback: ProgressEventCallback): void;
-  public on(
-    event: "log" | "progress",
-    callback: LogEventCallback | ProgressEventCallback
-  ) {
-    if (event === "log") {
+  public on(event: 'log', callback: LogEventCallback): void;
+  public on(event: 'progress', callback: ProgressEventCallback): void;
+  public on(event: 'log' | 'progress', callback: LogEventCallback | ProgressEventCallback) {
+    if (event === 'log') {
       this.#logEventCallbacks.push(callback as LogEventCallback);
-    } else if (event === "progress") {
+    } else if (event === 'progress') {
       this.#progressEventCallbacks.push(callback as ProgressEventCallback);
     }
   }
@@ -151,15 +141,12 @@ export class FFmpeg {
    *
    * @category FFmpeg
    */
-  public off(event: "log", callback: LogEventCallback): void;
-  public off(event: "progress", callback: ProgressEventCallback): void;
-  public off(
-    event: "log" | "progress",
-    callback: LogEventCallback | ProgressEventCallback
-  ) {
-    if (event === "log") {
+  public off(event: 'log', callback: LogEventCallback): void;
+  public off(event: 'progress', callback: ProgressEventCallback): void;
+  public off(event: 'log' | 'progress', callback: LogEventCallback | ProgressEventCallback) {
+    if (event === 'log') {
       this.#logEventCallbacks.filter((f) => f !== callback);
-    } else if (event === "progress") {
+    } else if (event === 'progress') {
       this.#progressEventCallbacks.filter((f) => f !== callback);
     }
   }
@@ -173,8 +160,8 @@ export class FFmpeg {
    */
   public load = (config: FFMessageLoadConfig = {}): Promise<IsFirst> => {
     if (!this.#worker) {
-      this.#worker = new Worker(new URL("./worker", import.meta.url), {
-        type: "module",
+      this.#worker = new Worker(new URL('./worker', import.meta.url), {
+        type: 'module',
       });
       this.#registerHandlers();
     }
@@ -212,7 +199,7 @@ export class FFmpeg {
      *
      * @defaultValue -1
      */
-    timeout = -1
+    timeout = -1,
   ): Promise<number> =>
     this.#send({
       type: FFMessageType.EXEC,
@@ -220,20 +207,19 @@ export class FFmpeg {
     }) as Promise<number>;
 
   public execFFprobe = (
-      /** ffmpeg command line args */
-      args: string[],
-      /**
-       * milliseconds to wait before stopping the command execution.
-       *
-       * @defaultValue -1
-       */
-      timeout = -1
+    /** ffmpeg command line args */
+    args: string[],
+    /**
+     * milliseconds to wait before stopping the command execution.
+     *
+     * @defaultValue -1
+     */
+    timeout = -1,
   ): Promise<number> =>
-      this.#send({
-        type: FFMessageType.EXEC_FFPROBE,
-        data: { args, timeout },
-      }) as Promise<number>;
-
+    this.#send({
+      type: FFMessageType.EXEC_FFPROBE,
+      data: { args, timeout },
+    }) as Promise<number>;
 
   /**
    * Terminate all ongoing API calls and terminate web worker.
@@ -280,7 +266,7 @@ export class FFmpeg {
         type: FFMessageType.WRITE_FILE,
         data: { path, data },
       },
-      trans
+      trans,
     ) as Promise<OK>;
   };
 
@@ -290,14 +276,13 @@ export class FFmpeg {
       trans.push(data.buffer);
     }
     return this.#send(
-        {
-          type: FFMessageType.WRITE_FILE_FFPROBE,
-          data: { path, data },
-        },
-        trans
+      {
+        type: FFMessageType.WRITE_FILE_FFPROBE,
+        data: { path, data },
+      },
+      trans,
     ) as Promise<OK>;
   };
-
 
   /**
    * Read data from ffmpeg.wasm.
@@ -320,7 +305,7 @@ export class FFmpeg {
      *
      * @defaultValue binary
      */
-    encoding = "binary"
+    encoding = 'binary',
   ): Promise<FileData> =>
     this.#send({
       type: FFMessageType.READ_FILE,
@@ -328,20 +313,20 @@ export class FFmpeg {
     }) as Promise<FileData>;
 
   public readFileFFprobe = (
-      path: string,
-      /**
-       * File content encoding, supports two encodings:
-       * - utf8: read file as text file, return data in string type.
-       * - binary: read file as binary file, return data in Uint8Array type.
-       *
-       * @defaultValue binary
-       */
-      encoding = "binary"
+    path: string,
+    /**
+     * File content encoding, supports two encodings:
+     * - utf8: read file as text file, return data in string type.
+     * - binary: read file as binary file, return data in Uint8Array type.
+     *
+     * @defaultValue binary
+     */
+    encoding = 'binary',
   ): Promise<FileData> =>
-      this.#send({
-        type: FFMessageType.READ_FILE_FFPROBE,
-        data: { path, encoding },
-      }) as Promise<FileData>;
+    this.#send({
+      type: FFMessageType.READ_FILE_FFPROBE,
+      data: { path, encoding },
+    }) as Promise<FileData>;
 
   /**
    * Delete a file.
@@ -407,23 +392,23 @@ export class FFmpeg {
       type: FFMessageType.DELETE_FFPROBE_FILE,
       data: { path },
     }) as Promise<OK>;
-    
-  public extract_frame = (path:string):Promise<any> => 
-    this.#send({
-      type:FFMessageType.EXTRACT_FRAME,
-      data:{path},
-    }) as Promise<FSNode[]>
 
-  public getVideoBasicParams = (path:string):Promise<FFMessageVideoBasicParams> => {
+  public extract_frame = (path: string): Promise<any> =>
+    this.#send({
+      type: FFMessageType.EXTRACT_FRAME,
+      data: { path },
+    }) as Promise<FSNode[]>;
+
+  public getVideoBasicParams = (path: string): Promise<FFMessageVideoBasicParams> => {
     return this.#send({
-      type:FFMessageType.GET_VIDEO_BASICPARAMS,
-      data:{path}
-    }) as Promise<FFMessageVideoBasicParams>
-  }
-  public getKeyFrameList = async (path:string):Promise<FFMessageKeyFrameListData> => {
+      type: FFMessageType.GET_VIDEO_BASICPARAMS,
+      data: { path },
+    }) as Promise<FFMessageVideoBasicParams>;
+  };
+  public getKeyFrameList = async (path: string): Promise<FFMessageKeyFrameListData> => {
     return this.#send({
-      type:FFMessageType.GET_KEYFRAME_LIST,
-      data:{path}
-    }) as Promise<FFMessageKeyFrameListData>
-  }
+      type: FFMessageType.GET_KEYFRAME_LIST,
+      data: { path },
+    }) as Promise<FFMessageKeyFrameListData>;
+  };
 }

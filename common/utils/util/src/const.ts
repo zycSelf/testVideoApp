@@ -1,1 +1,1 @@
-export const HeaderContentLength = "Content-Length";
+export const HeaderContentLength = 'Content-Length';

@@ -16,7 +16,7 @@ export interface FFMessageLoadConfig {
    * @defaultValue `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd/ffmpeg-core.wasm`;
    */
   wasmURL?: string;
-  ffprobeCoreURL?:string;
+  ffprobeCoreURL?: string;
   ffprobeWasmURL?: string;
   ffprobeWorkerURL?: string;
   /**
@@ -64,39 +64,38 @@ export interface FFMessageListDirData {
 }
 
 export interface Format {
-  duration:string
-  size:string
-  filename:string
+  duration: string;
+  size: string;
+  filename: string;
 }
 export interface Streams {
-  width:number
-  height:number
+  width: number;
+  height: number;
 }
-export interface Programs {
-}
+export interface Programs {}
 export interface FFMessageVideoBasicParams {
-  format:Format
-  programs:Array<Programs>
-  streams:Array<Streams>
+  format: Format;
+  programs: Array<Programs>;
+  streams: Array<Streams>;
 }
 
 export interface FFMessageFrameList {
-  frameList:Array<FFMessageKeyFrameList>
-  keyFrameList:Array<FFMessageKeyFrameList>
+  frameList: Array<FFMessageKeyFrameList>;
+  keyFrameList: Array<FFMessageKeyFrameList>;
 }
 
 export interface FFMessageKeyFrameList {
-  key_frame:number
-  pts_time:string
-  width:number
-  height:number
-  pict_tyep:string
+  key_frame: number;
+  pts_time: string;
+  width: number;
+  height: number;
+  pict_tyep: string;
 }
 
 export interface FFMessageKeyFrameListData {
-  frameList:FFMessageKeyFrameList[]
-  keyFrameList:FFMessageKeyFrameList[]
-  keyFrameImageList:Uint8Array[]
+  frameList: FFMessageKeyFrameList[];
+  keyFrameList: FFMessageKeyFrameList[];
+  keyFrameImageList: Uint8Array[];
 }
 
 /**
@@ -164,7 +163,7 @@ export type CallbackData =
   | FSNode[]
   | undefined
   | FFMessageKeyFrameListData
-  | FFMessageVideoBasicParams
+  | FFMessageVideoBasicParams;
 
 export interface Callbacks {
   [id: number | string]: (data: CallbackData) => void;
