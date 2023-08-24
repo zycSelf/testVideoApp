@@ -93,7 +93,7 @@ export const Calipers = ({ dragData, currentTime, handleChangeCalipersTime, hand
           <div
             key={file.id}
             style={{ width: `${rem}rem` }}
-            className="w-16 h-full flex flex-col select-none overflow-hidden bg-videoCaliperBG"
+            className="w-16 h-full flex flex-col select-none overflow-hidden bg-videoCaliperBG shrink-0"
           >
             <div className="header text-xs h-4">
               <span className="m-4">{file.filename}</span>
@@ -120,7 +120,7 @@ export const Calipers = ({ dragData, currentTime, handleChangeCalipersTime, hand
       <div className="h-8 w-full bg-red">operateArea</div>
       <div className="flex flex-row flex-1 border-t border-gray">
         <div className="icons h-full w-8">left</div>
-        <div className="caliper h-full flex-1 flex flex-row relative">
+        <div className="caliper h-full flex-1 flex flex-row relative overflow-auto">
           <div
             ref={videoAndAudioRef}
             onDrop={handleDropVideo}
@@ -129,7 +129,7 @@ export const Calipers = ({ dragData, currentTime, handleChangeCalipersTime, hand
             }}
             onDragEnter={handleDragEnterVideoArea}
             onDragLeave={handleDragLeaveVideoArea}
-            className="videoAndAudio overflow-scroll flex flex-row  h-16 bg-slate-400 w-full absolute top-16"
+            className="videoAndAudio flex flex-row  h-16 bg-slate-400 w-full absolute top-16"
           >
             {generateActiveFileList()}
           </div>
