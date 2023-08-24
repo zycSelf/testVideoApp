@@ -1,10 +1,11 @@
 import Image from 'next/image';
 import { VideoFileData, DragData } from './videoView';
 import { Suspense, useEffect, useRef, useState } from 'react';
+import { generateTime } from '../utils/generateTime';
 
 interface CalipersProps {
   dragData: DragData | null;
-  currentTime: number | null;
+  currentTime: number | null; //second 秒计时
   handleChangeCalipersTime: (time: number) => void;
   handleSplitImage: (file: ActiveFileListItem, splitTime: number) => Promise<ActiveFileListItem>;
 }
@@ -19,6 +20,7 @@ interface PicBlobUrl {
 }
 export const Calipers = ({ dragData, currentTime, handleChangeCalipersTime, handleSplitImage }: CalipersProps) => {
   const videoAndAudioRef = useRef<HTMLDivElement>(null);
+  const hourhandRef = useRef<HTMLDivElement>(null);
   // 12rem => timeSharing / 1000
   const [timeSharing, setTimeSharing] = useState<number>(2000);
   const [activeFileList, setActiveFileList] = useState<Array<ActiveFileListItem>>([]);
@@ -39,6 +41,13 @@ export const Calipers = ({ dragData, currentTime, handleChangeCalipersTime, hand
       }
     }
   }, [activeFileList]);
+  useEffect(() => {
+    const hourHand = hourhandRef.current;
+    if (hourHand && currentTime) {
+      const offset = currentTime * 6;
+      hourHand.style.setProperty('transform', `translateX(${offset}rem)`);
+    }
+  }, [currentTime]);
   const handleDragEnterVideoArea = () => {
     if (dragData?.type === 'video') {
       console.log('dragOverOnVideo');
@@ -84,25 +93,22 @@ export const Calipers = ({ dragData, currentTime, handleChangeCalipersTime, hand
           <div
             key={file.id}
             style={{ width: `${rem}rem` }}
-            className="w-16 h-full flex flex-col select-none overflow-hidden pt-3 pb-2 bg-videoCaliperBG"
+            className="w-16 h-full flex flex-col select-none overflow-hidden bg-videoCaliperBG"
           >
-            <div>
-              <div></div>
-              <div>
-                {file.picBlobUrlList?.map((item: PicBlobUrl) => {
-                  return (
-                    <img
-                      alt=""
-                      key={item.id}
-                      src={item.value}
-                      style={{ width: `${6}rem` }}
-                      className="select-none"
-                      draggable={false}
-                    />
-                  );
-                })}
-              </div>
+            <div className="header text-xs h-4">
+              <span className="m-4">{file.filename}</span>
+              <span className="m-4">{generateTime(file.duration)}</span>
             </div>
+            <div className="body flex flex-row flex-1">
+              {file.picBlobUrlList?.map((item: PicBlobUrl) => {
+                return (
+                  <div className="relative shrink-0 h-full" style={{ width: `${6}rem` }} key={item.id}>
+                    <Image alt="" src={item.value} className="select-none" draggable={false} fill />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="footer h-2"></div>
           </div>
         );
       }
@@ -127,6 +133,7 @@ export const Calipers = ({ dragData, currentTime, handleChangeCalipersTime, hand
           >
             {generateActiveFileList()}
           </div>
+          <div ref={hourhandRef} style={{ width: 1 }} className="h-full absolute bg-white transform-gpu" />
         </div>
       </div>
     </div>

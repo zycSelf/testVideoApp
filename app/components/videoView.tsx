@@ -43,6 +43,7 @@ export default function VideoView() {
   const [running, setRunning] = useState<boolean>(false);
   const [fileList, setFileList] = useState<Array<VideoFileData>>([]);
   const [currentTime, setCurrentTime] = useState<number>(0);
+  const [play, setPlay] = useState<boolean>(false);
   useEffect(() => {
     if (loaded) {
       if (videoRef.current) {
@@ -150,6 +151,9 @@ export default function VideoView() {
     if (!isWriten && file) {
       await ffmpeg.writeFile(filename, await fetchFile(file));
       await ffmpeg.writeFileFFprobe(filename, await fetchFile(file));
+      const data = (await ffmpeg.readFile(filename)) as Uint8Array;
+      const url = getUrl(data, { type: 'video/mp4' });
+      videoRef.current.src = url;
     } else {
       const fileData = await ffmpeg.readFile(filename);
       console.log(fileData);
@@ -194,11 +198,22 @@ export default function VideoView() {
   };
   const videoPlay = () => {
     if (videoRef.current) {
+      updateCurrentTime();
+      setPlay(true);
       videoRef.current.play();
     }
   };
+  const updateCurrentTime = () => {
+    const video = videoRef.current;
+    if (video && !video.ended) {
+      const currentTime = videoRef.current?.currentTime;
+      setCurrentTime(currentTime);
+      requestAnimationFrame(updateCurrentTime);
+    } else {
+      setPlay(false);
+    }
+  };
   const getCalipersParams = () => {
-    const currentTime = getCurrentTime();
     return {
       dragData,
       currentTime,
