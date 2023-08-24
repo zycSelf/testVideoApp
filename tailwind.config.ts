@@ -11,6 +11,7 @@ const config: Config = {
       colors: {
         basicBgColor: '#252528',
         picDisplay: 'rgb(51,51,54)',
+        videoCaliperBG: 'rgb(46,75,82)',
       },
       flexGrow: {
         2: '2',

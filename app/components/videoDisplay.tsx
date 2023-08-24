@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react';
 
 interface VideoDisplayProps {
   id: string;
-  picBlobUrl: string;
+  firstPicBlobUrl: string;
   filename: string;
   params: FFMessageVideoBasicParams;
   handleDragStart: (id: string, type: string) => void;
 }
-export const VideoDisplayPic = ({ id, filename, params, picBlobUrl, handleDragStart }: VideoDisplayProps) => {
+export const VideoDisplayPic = ({ id, filename, params, firstPicBlobUrl, handleDragStart }: VideoDisplayProps) => {
   const [round, setRound] = useState<number>(0);
   useEffect(() => {
     const duration = params.format.duration;
@@ -25,7 +25,7 @@ export const VideoDisplayPic = ({ id, filename, params, picBlobUrl, handleDragSt
   return (
     <div draggable onDragStart={handleDrag} className="w-32 h-16 relative bg-picDisplay pb-4">
       <div className="w-full h-12 relative">
-        <Image layout="fill" src={picBlobUrl} alt={filename} />
+        <Image layout="fill" src={firstPicBlobUrl} alt={filename} />
       </div>
       <span className="absolute bottom-0 right-0 text-xs">{generateTime(round).split('.')[0]}</span>
     </div>

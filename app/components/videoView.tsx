@@ -6,7 +6,7 @@ import { FFMessageKeyFrameListData, FFMessageVideoBasicParams, FileData } from '
 import Image from 'next/image';
 import { generateTime } from '@/app/utils//generateTime';
 import { blurEffect } from '@/app/utils/effects/blur';
-import { Calipers } from './divCalipers';
+import { ActiveFileListItem, Calipers } from './divCalipers';
 import { param } from 'ts-interface-checker';
 import { VideoDisplayPic } from './videoDisplay';
 
@@ -27,7 +27,7 @@ export interface VideoFileData {
   };
   duration: number;
   params: FFMessageVideoBasicParams;
-  picBlobUrl: string;
+  firstPicBlobUrl: string;
 }
 export interface DragData {
   type: string;
@@ -108,8 +108,8 @@ export default function VideoView() {
       // `scale=${videoBasicParams?.params.format.size}`,
       '-frames',
       '1',
-      // "-s",
-      // `${canvas.offsetWidth}x${canvas.offsetHeight}`,
+      '-s',
+      `${100}x${50}`,
       '-vsync',
       '2',
       '-f',
@@ -164,8 +164,8 @@ export default function VideoView() {
   const addFileListData = async (ffmpeg: FFmpeg, filename: string, file: File) => {
     const basicParams = await ffmpeg.getVideoBasicParams(filename);
     const currentTime = 0;
-    const pic = (await getPicByTime(filename, currentTime)) as Uint8Array;
-    const picBlobUrl = getUrl(pic, { type: 'image/png' });
+    const firstPicBinary = (await getPicByTime(filename, currentTime)) as Uint8Array;
+    const firstPicBlobUrl = getUrl(firstPicBinary, { type: 'image/png' });
     const id = new Date().getTime().toString();
     const startTime = 0;
     const duration = Number(basicParams.format.duration);
@@ -178,7 +178,7 @@ export default function VideoView() {
       id,
       file,
       filename,
-      picBlobUrl,
+      firstPicBlobUrl,
       startTime,
       endTime,
       scale,
@@ -203,6 +203,28 @@ export default function VideoView() {
       dragData,
       currentTime,
       handleChangeCalipersTime,
+      handleSplitImage,
+    };
+  };
+  const handleSplitImage = async (file: ActiveFileListItem, splitTime: number): Promise<ActiveFileListItem> => {
+    const count = Math.ceil(file.duration) * 1000;
+    let currentTime = 0;
+    const filename = file.filename;
+    const picBlobUrlList = [];
+    while (currentTime < count) {
+      const picBinary = (await getPicByTime(filename, currentTime / 1000)) as Uint8Array;
+      const picBlobUrl = getUrl(picBinary, { type: 'image/png' });
+      picBlobUrlList.push({
+        id: new Date().getTime().toString(),
+        time: currentTime,
+        value: picBlobUrl,
+      });
+      currentTime += splitTime;
+    }
+    return {
+      ...file,
+      status: 'done',
+      picBlobUrlList,
     };
   };
   const handleVideoPicDragStart = (id: string, type: string) => {
