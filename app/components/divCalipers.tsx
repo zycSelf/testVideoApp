@@ -90,7 +90,6 @@ export const Calipers = ({
     if (hourHand && currentTime) {
       const now = elapsedTime + currentTime;
       setCaliperCurrent(elapsedTime + currentTime);
-      console.log(currentTime, now, allTime);
       if (now === allTime) {
         handleStopVideo();
       }
