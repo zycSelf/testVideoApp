@@ -207,8 +207,8 @@ export const Calipers = ({
       <div className="h-8 w-full bg-red">operateArea</div>
       <div className="flex flex-row flex-1 border-t border-gray">
         <div className="icons h-full w-8">left</div>
-        <div className="overflow-auto  relative">
-          <div ref={scrollRef} className="relative min-w-full">
+        <div className="relative flex-1 overflow-auto">
+          <div className="inline-flex relative min-w-full h-full">
             <TimeScaleLine timeSharing={timeSharing} duration={getAllVideoDuration()} />
             <div
               ref={videoAndAudioRef}
@@ -254,15 +254,15 @@ const TimeScaleLine = ({ timeSharing, duration }: TimeScaleLineProps) => {
   const generateParams = () => {
     const basicRem = 12;
     const maxDuration = Math.ceil(duration) * 1000; // 转 ms
-    let bigTimeSharingCount = maxDuration / timeSharing.time; // 12rem => 1 count
-    const width = tickMarkRef.current?.offsetWidth;
-    const fontSize = document.getElementsByTagName('html')[0].style.fontSize
-      ? Number(document.getElementsByTagName('html')[0].style.fontSize.split('px')[0])
-      : 16;
-    console.log(fontSize);
-    while ((bigTimeSharingCount + 1) * basicRem * fontSize < width) {
-      bigTimeSharingCount++;
-    }
+    const bigTimeSharingCount = maxDuration / timeSharing.time; // 12rem => 1 count
+    // const width = tickMarkRef.current?.offsetWidth;
+    // const fontSize = document.getElementsByTagName('html')[0].style.fontSize
+    //   ? Number(document.getElementsByTagName('html')[0].style.fontSize.split('px')[0])
+    //   : 16;
+    // console.log(fontSize);
+    // while ((bigTimeSharingCount + 1) * basicRem * fontSize < width) {
+    //   bigTimeSharingCount++;
+    // }
     const basicParams = {
       basicRem,
       maxDuration,
