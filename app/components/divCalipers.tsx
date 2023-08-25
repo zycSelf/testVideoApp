@@ -1,126 +1,29 @@
 import Image from 'next/image';
-import { VideoFileData, DragData } from './videoView';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { DragData } from './videoView';
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
 import { generateMMSSTime, generateTime } from '../utils/generateTime';
+import { ActiveFileListItem, PicBlobUrl, TimeSharing } from './operateList';
 
 interface CalipersProps {
   isPlay: boolean;
   dragData: DragData | null;
+  timeSharing: TimeSharing;
   currentTime: number | null; //second 秒计时
-  handleChangeCalipersTime: (time: number) => void;
-  handleSplitImage: (file: ActiveFileListItem, splitTime: number) => Promise<ActiveFileListItem>;
-  handleGetVideo: () => string | null;
-  handleSetVideo: (data: ActiveFileListItem, currentTime?: number) => void;
-  handlePlayVideo: () => void;
-  handleStopVideo: () => void;
+  activeFileList: Array<ActiveFileListItem>;
+  caliperCurrent: number;
+  setActiveFileList: Dispatch<SetStateAction<ActiveFileListItem[]>>;
 }
-export type ActiveFileListItem = VideoFileData & {
-  status: string;
-  bindId: string;
-  picBlobUrlList?: Array<PicBlobUrl>;
-};
-interface PicBlobUrl {
-  id: string;
-  time: number;
-  value: string;
-}
-export type TimeSharing = typeof defaultTimeSharing.lv1;
-const defaultTimeSharing = {
-  lv1: {
-    time: 2000,
-    section: 10,
-  },
-  lv2: {
-    time: 1000,
-    section: 10,
-  },
-  lv3: {
-    time: 500,
-    section: 5,
-  },
-  lv4: {
-    time: 200,
-    section: 2,
-  },
-};
 export const Calipers = ({
-  isPlay,
   dragData,
-  currentTime,
-  handleChangeCalipersTime,
-  handleSplitImage,
-  handleGetVideo,
-  handleSetVideo,
-  handlePlayVideo,
-  handleStopVideo,
+  activeFileList,
+  timeSharing,
+  caliperCurrent,
+  setActiveFileList,
 }: CalipersProps) => {
   const videoAndAudioRef = useRef<HTMLDivElement>(null);
   const hourhandRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // 12rem => timeSharing.time / 1000
-  const [timeSharing, setTimeSharing] = useState<TimeSharing>(defaultTimeSharing.lv1); // 2s 1s 0.5s 0.2s
-  const [activeFileList, setActiveFileList] = useState<Array<ActiveFileListItem>>([]);
-  const [allTime, setAllTime] = useState<number>(0);
-  const [activeVideoIndex, setActiveVideoIndex] = useState<number>(0);
-  const [elapsedTime, setElapsedTime] = useState<number>(0);
-  const [caliperCurrent, setCaliperCurrent] = useState<number>(0);
-  useEffect(() => {
-    if (activeFileList.length > 0) {
-      const file = activeFileList[activeFileList.length - 1];
-      if (!handleGetVideo()) {
-        handleSetVideo(file, 0);
-      }
-      if (file.status === 'idle') {
-        handleSplitImage(file, timeSharing.time / 2).then((fileWithPicBlob: ActiveFileListItem) => {
-          const newActiveFileList = activeFileList.map((item) => {
-            if (item.id === fileWithPicBlob.id) {
-              return fileWithPicBlob;
-            } else {
-              return item;
-            }
-          });
-          setAllTime(allTime + fileWithPicBlob.duration);
-          setActiveFileList(newActiveFileList);
-        });
-      }
-    }
-  }, [activeFileList]);
-  useEffect(() => {
-    const hourHand = hourhandRef.current;
-    if (hourHand && currentTime) {
-      const now = elapsedTime + currentTime;
-      setCaliperCurrent(elapsedTime + currentTime);
-      if (now === allTime) {
-        handleStopVideo();
-      }
-      if (
-        activeFileList[activeVideoIndex] &&
-        activeFileList[activeVideoIndex + 1] &&
-        currentTime === activeFileList[activeVideoIndex].duration
-      ) {
-        setElapsedTime(elapsedTime + activeFileList[activeVideoIndex].duration);
-        handleSetVideo(activeFileList[activeVideoIndex + 1]);
-        setActiveVideoIndex(activeVideoIndex + 1);
-      }
-    }
-  }, [currentTime]);
-  useEffect(() => {
-    if (isPlay) {
-      if (caliperCurrent === allTime) {
-        setElapsedTime(0);
-        setCaliperCurrent(0);
-        if (activeFileList.length > 0) {
-          handleSetVideo(activeFileList[0], 0);
-          setActiveVideoIndex(0);
-        }
-      }
-    }
-  }, [isPlay]);
-  useEffect(() => {
-    const time = 1000 * allTime;
-    const count = Math.ceil(time / timeSharing.time) + 1;
-    console.log(allTime);
-  }, [allTime]);
   const handleDragEnterVideoArea = () => {
     if (dragData?.type === 'video') {
       console.log('dragOverOnVideo');
@@ -136,7 +39,6 @@ export const Calipers = ({
       if (type === 'video') {
         const newActiveFileList = activeFileList.concat({
           ...data,
-          status: 'idle',
           bindId: data.id,
           id: new Date().getTime().toString(),
         });
@@ -175,7 +77,7 @@ export const Calipers = ({
               <span className="m-4">{generateTime(file.duration)}</span>
             </div>
             <div className="body flex flex-row flex-1">
-              {file.picBlobUrlList?.map((item: PicBlobUrl) => {
+              {file.picBlobUrlMap[timeSharing.level]?.map((item: PicBlobUrl) => {
                 return (
                   <div className="relative shrink-0 h-full" style={{ width: `${6}rem` }} key={item.value}>
                     <Image alt="" src={item.value} className="select-none" draggable={false} fill />

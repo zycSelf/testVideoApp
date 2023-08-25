@@ -36,7 +36,6 @@ export default function Home() {
     console.log('transcode');
     const ffmpeg = ffmpegRef.current;
     const videoFile = await fetchFile('/test.mp4');
-    console.log(videoFile);
     const inputFile = await ffmpeg.writeFile('/input.avi', videoFile);
     console.log(inputFile);
     const outputFile = await ffmpeg.exec(['-i', '/input.avi', '/output.mp4']).then((data) => {

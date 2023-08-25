@@ -1,20 +1,12 @@
 'use client';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { FFmpeg } from '@/common/utils/ffmpeg/src';
-import { fetchFile } from '@/common/utils/util/src';
-import { FFMessageKeyFrameListData, FFMessageVideoBasicParams, FileData } from '@/common/utils/ffmpeg/src/types';
-import Image from 'next/image';
+import { FFMessageVideoBasicParams, FileData, LogEvent } from '@/common/utils/ffmpeg/src/types';
 import { generateTime } from '@/app/utils//generateTime';
-import { blurEffect } from '@/app/utils/effects/blur';
-import { ActiveFileListItem, Calipers } from './divCalipers';
-import { param } from 'ts-interface-checker';
-import { VideoDisplayPic } from './videoDisplay';
+import { LeftUploadist } from './leftUploadList';
+import { OperatePage, PicBlobUrl, TimeSharing } from './operateList';
+import { getUrl } from '../utils/getBlobUrl';
 
-interface VideoViewProps {
-  src: string | null;
-
-  transcode: () => void;
-}
 export interface VideoFileData {
   id: string;
   file: File;
@@ -28,47 +20,46 @@ export interface VideoFileData {
   duration: number;
   params: FFMessageVideoBasicParams;
   firstPicBlobUrl: string;
+  status: string;
+  picBlobUrlMap: {
+    [key: string]: Array<PicBlobUrl>;
+  };
 }
 export interface DragData {
   type: string;
   data: VideoFileData;
 }
+export interface FFmpegOperate {
+  readFile: (filename: string) => Promise<FileData>;
+  readFileFFprobe: (filename: string) => Promise<FileData>;
+  writeFile: (filename: string, data: FileData) => Promise<boolean>;
+  writeFileFFprobe: (filename: string, data: FileData) => Promise<boolean>;
+  deleteFile: (path: string) => Promise<boolean>;
+  deleteFileFFprobe: (path: string) => Promise<boolean>;
+  deleteDir: (path: string) => Promise<boolean>;
+  deleteDirFFprobe: (path: string) => Promise<boolean>;
+  getPicByTime: (filename: string, time: number) => Promise<FileData>;
+  getVideoBasicParams: (path: string) => Promise<FFMessageVideoBasicParams>;
+  handleFFmpegLog: (cb: (message: string) => void) => void;
+  handleFFmpegProgress: (cb: (progressData: LogEvent) => void) => void;
+  splitTimeSharingImage: (file: VideoFileData, timeSharingArr: Array<TimeSharing>) => Promise<VideoFileData>;
+}
 export default function VideoView() {
   const ffmpegRef = useRef<FFmpeg>(new FFmpeg());
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const uploadFileRef = useRef<HTMLInputElement>(null);
-  const messageRef = useRef<HTMLDivElement>(null);
+  const workRef = useRef<Array<string>>([]);
+  const ffmpegOperateRef = useRef<FFmpegOperate | null>(null);
   const [loaded, setLoaded] = useState<boolean>(false);
   const [dragData, setDragData] = useState<DragData | null>(null);
-  const [running, setRunning] = useState<boolean>(false);
   const [fileList, setFileList] = useState<Array<VideoFileData>>([]);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [play, setPlay] = useState<boolean>(false);
   useEffect(() => {
     if (!loaded) {
       console.count('initial');
       initFFmpeg();
+      ffmpegOperateRef.current = operate;
     }
   }, [loaded]);
-  const getUrl = (binary: Uint8Array, type: any) => {
-    const buffer = binary.buffer;
-    const blob = new Blob([buffer], type);
-    const url = URL.createObjectURL(blob);
-    return url;
-  };
   const initFFmpeg = async () => {
     const ffmpeg = ffmpegRef.current;
-    ffmpeg.on('log', ({ message }) => {
-      if (messageRef.current) {
-        // console.log(message)
-        messageRef.current.innerText = message;
-      }
-    });
-    ffmpeg.on('progress', (progressData) => {
-      console.log(progressData);
-    });
-    // toBlobURL is used to bypass CORS issue, urls with the same
-    // domain can be used directly.
     await ffmpeg.load({
       coreURL: '/core/ffmpeg/umd/ffmpeg-core.js',
       wasmURL: '/core/ffmpeg/umd/ffmpeg-core.wasm',
@@ -79,19 +70,23 @@ export default function VideoView() {
     });
     setLoaded(true);
   };
-  const getCurrentTime = (): number | null => {
-    const video = videoRef.current as HTMLVideoElement;
-    if (video) {
-      const currentTime = video.currentTime as number;
-      return currentTime;
-    } else {
-      return null;
-    }
+  const handleFFmpegLog = (cb: (message: string) => void) => {
+    const ffmpeg = ffmpegRef.current;
+    ffmpeg.on('log', ({ message }) => {
+      cb && cb(message);
+    });
+  };
+  const handleFFmpegProgress = (cb: (progressData: LogEvent) => void) => {
+    const ffmpeg = ffmpegRef.current;
+    ffmpeg.on('log', (progressData) => {
+      cb && cb(progressData);
+    });
   };
   const getPicByTime = async (filename: string, time: number) => {
     const ffmpeg = ffmpegRef.current;
     const hmsTime = generateTime(time);
     console.log(filename, time);
+    const name = `image${new Date().getTime()}.png`;
     const args = [
       '-ss',
       hmsTime,
@@ -108,223 +103,115 @@ export default function VideoView() {
       '2',
       '-f',
       'image2',
-      `image.png`,
+      name,
     ];
     await ffmpeg.exec(args);
-    const fileData = await ffmpeg.readFile('image.png');
+    const fileData = await ffmpeg.readFile(name);
+    deleteFile(name);
     return fileData;
   };
-  const uploadFile = async (file: File) => {
-    if (!running) {
-      setRunning(true);
-      const filename = file.name;
-      await uploadFileInfo(filename, false, file);
-      setRunning(false);
-    }
+  const readFile = async (filename: string): Promise<FileData> => {
+    const fileData = await ffmpegRef.current.readFile(filename);
+    return fileData;
   };
-  const uploadFileInfo = async (filename: string, isWriten: boolean, file: File) => {
-    const ffmpeg = ffmpegRef.current;
-    // const oldFileName = videoBasicParams ? videoBasicParams.params.format.filename : null
-    const oldFileName = null;
-    await writeAndDel(ffmpeg, filename, oldFileName, isWriten, file);
-    console.log('writeAndDelDone');
-    await addFileListData(ffmpeg, filename, file);
+  const readFileFFprobe = async (filename: string): Promise<FileData> => {
+    const fileData = await ffmpegRef.current.readFileFFprobe(filename);
+    return fileData;
   };
-  const writeAndDel = async (
-    ffmpeg: FFmpeg,
-    filename: string,
-    oldFileName: string | null,
-    isWriten: boolean,
-    file: File,
-  ) => {
-    if (oldFileName) {
-      deleteFile(ffmpeg, oldFileName);
+  const writeFile = async (filename: string, data: FileData): Promise<boolean> => {
+    const boolean = await ffmpegRef.current.writeFile(filename, data);
+    return boolean;
+  };
+  const writeFileFFprobe = async (filename: string, data: FileData): Promise<boolean> => {
+    const boolean = await ffmpegRef.current.writeFileFFprobe(filename, data);
+    return boolean;
+  };
+  const deleteFile = async (path: string): Promise<boolean> => {
+    const boolean = await ffmpegRef.current.deleteFile(path);
+    return boolean;
+  };
+  const deleteFileFFprobe = async (path: string): Promise<boolean> => {
+    const boolean = await ffmpegRef.current.deleteFFprobeFile(path);
+    return boolean;
+  };
+  const deleteDir = async (path: string): Promise<boolean> => {
+    const boolean = await ffmpegRef.current.deleteDir(path);
+    return boolean;
+  };
+  const deleteDirFFprobe = async (path: string): Promise<boolean> => {
+    const boolean = await ffmpegRef.current.deleteFFprobeDir(path);
+    return boolean;
+  };
+  const getVideoBasicParams = async (path: string): Promise<FFMessageVideoBasicParams> => {
+    const basicFileData = await ffmpegRef.current.getVideoBasicParams(path);
+    return basicFileData;
+  };
+  const splitTimeSharingImage = async (
+    file: VideoFileData,
+    timeSharingArr: Array<TimeSharing>,
+  ): Promise<VideoFileData> => {
+    const picBlobUrlMap: {
+      [key: string]: Array<PicBlobUrl>;
+    } = {};
+    for (let i = 0; i < timeSharingArr.length; i++) {
+      const timeSharing = timeSharingArr[i];
+      const { level, time } = timeSharing;
+      const splitTime = time / 2;
+      const count = Math.ceil(file.duration);
+      const filename = file.filename;
+      let currentTime = 0;
+      picBlobUrlMap[level] = [];
+      const getPic = async (filename: string, time: number) => {
+        const picBinary = await getPicByTime(filename, time);
+        const picBlobUrl = getUrl(picBinary);
+        picBlobUrlMap[level].push({
+          id: new Date().getTime().toString(),
+          time: currentTime,
+          value: picBlobUrl,
+        });
+        currentTime += splitTime / 1000;
+        if (currentTime < count) {
+          await getPic(filename, currentTime / 1000);
+        }
+      };
+      await getPic(filename, currentTime / 1000);
+      picBlobUrlMap[level].sort((a, b) => a.time - b.time);
     }
+    file.picBlobUrlMap = picBlobUrlMap;
+    return file;
+  };
+  const operate = {
+    readFile,
+    readFileFFprobe,
+    writeFile,
+    writeFileFFprobe,
+    deleteFile,
+    deleteFileFFprobe,
+    deleteDir,
+    deleteDirFFprobe,
+    getPicByTime,
+    getVideoBasicParams,
+    handleFFmpegLog,
+    handleFFmpegProgress,
+    splitTimeSharingImage,
+  };
 
-    if (!isWriten && file) {
-      await ffmpeg.writeFile(filename, await fetchFile(file));
-      await ffmpeg.writeFileFFprobe(filename, await fetchFile(file));
-    } else {
-      const fileData = await ffmpeg.readFile(filename);
-      await ffmpeg.writeFileFFprobe(filename, fileData);
-    }
-  };
-  const deleteFile = async (ffmpeg: FFmpeg, fileName: string) => {
-    await ffmpeg.deleteFile(fileName);
-    await ffmpeg.deleteFFprobeDir(fileName);
-    console.log('delete done');
-  };
-  const setVideo = (binary: Uint8Array) => {
-    const url = getUrl(binary, { type: 'video/mp4' });
-    videoRef.current.src = url;
-  };
-  const addFileListData = async (ffmpeg: FFmpeg, filename: string, file: File) => {
-    const basicParams = await ffmpeg.getVideoBasicParams(filename);
-    const currentTime = 0;
-    const firstPicBinary = (await getPicByTime(filename, currentTime)) as Uint8Array;
-    const firstPicBlobUrl = getUrl(firstPicBinary, { type: 'image/png' });
-    const id = new Date().getTime().toString();
-    const startTime = 0;
-    const duration = Number(basicParams.format.duration);
-    const endTime = startTime + duration;
-    const scale = {
-      width: basicParams.streams[0].width,
-      height: basicParams.streams[0].height,
-    };
-    const newFileListItem = {
-      id,
-      file,
-      filename,
-      firstPicBlobUrl,
-      startTime,
-      endTime,
-      scale,
-      duration,
-      params: basicParams,
-    };
-    setFileList(fileList.concat(newFileListItem));
-  };
-  const handleChangeCalipersTime = (time: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
-    }
-  };
-  const videoPlay = () => {
-    if (!videoRef.current?.src) {
-      return;
-    }
-    if (videoRef.current) {
-      setPlay(true);
-      updateCurrentTime();
-      videoRef.current.play();
-    }
-  };
-  const videoStop = () => {
-    if (videoRef.current) {
-      setPlay(false);
-      videoRef.current.pause();
-    }
-  };
-  const updateCurrentTime = () => {
-    const video = videoRef.current;
-    if (video) {
-      const currentTime = videoRef.current?.currentTime;
-      setCurrentTime(currentTime);
-      if (!video.ended) {
-        requestAnimationFrame(updateCurrentTime);
-      }
-    }
-  };
-  const handleGetVideo = () => {
-    const video = videoRef.current;
-    if (video) {
-      return video.src;
-    }
-    return null;
-  };
-  const handleSetVideo = async (data: ActiveFileListItem, currentTime?: number) => {
-    const video = videoRef.current;
-    if (video) {
-      const videoData = (await ffmpegRef.current.readFile(data.filename)) as Uint8Array;
-      setVideo(videoData);
-      if (currentTime) {
-        video.currentTime = currentTime;
-      }
-      if (play) {
-        videoPlay();
-      }
-    }
-  };
-  const getCalipersParams = () => {
-    return {
-      isPlay: play,
-      dragData,
-      currentTime,
-      handleChangeCalipersTime,
-      handleSplitImage,
-      handleGetVideo,
-      handleSetVideo,
-      handlePlayVideo: videoPlay,
-      handleStopVideo: videoStop,
-    };
-  };
-  const handleSplitImage = async (file: ActiveFileListItem, splitTime: number): Promise<ActiveFileListItem> => {
-    const count = Math.ceil(file.duration) * 1000;
-    let currentTime = 0;
-    const filename = file.filename;
-    const picBlobUrlList = [];
-    while (currentTime < count) {
-      const picBinary = (await getPicByTime(filename, currentTime / 1000)) as Uint8Array;
-      const picBlobUrl = getUrl(picBinary, { type: 'image/png' });
-      picBlobUrlList.push({
-        id: new Date().getTime().toString(),
-        time: currentTime,
-        value: picBlobUrl,
-      });
-      currentTime += splitTime;
-    }
-    return {
-      ...file,
-      status: 'done',
-      picBlobUrlList,
-    };
-  };
-  const handleVideoPicDragStart = (id: string, type: string) => {
-    const dragData = fileList.find((file) => file.id === id);
-    if (dragData) {
-      setDragData({
-        type,
-        data: dragData,
-      });
-    }
-  };
   return (
     <div className="flex bg-basicBgColor text-white h-full w-full flex-row justify-start items-center">
       {loaded ? (
         <Fragment>
-          <div className="upload relative shrink-0 flex-col w-52 h-full border-black border-r flex items-center">
-            <input
-              ref={uploadFileRef}
-              type={'file'}
-              className="hidden"
-              onChange={(e) => {
-                const target = e.target as HTMLInputElement;
-                if (target.files && target.files.length > 0) {
-                  uploadFile(target.files[0]);
-                }
-              }}
-            />
-            {fileList.map((fileData) => {
-              return <VideoDisplayPic key={fileData.id} {...fileData} handleDragStart={handleVideoPicDragStart} />;
-            })}
-            <button
-              className="absolute bottom-0 w-auto text-white border border-black border-solid flex justify-center items-center p-4"
-              onClick={() => {
-                uploadFileRef.current?.click();
-              }}
-            >
-              uploadFile
-            </button>
-          </div>
-          <div className="controlArea flex h-full w-full flex-col">
-            <div className="videoArea grow-[2] h-0">
-              <video className="w-full h-full" ref={videoRef}></video>
-            </div>
-            <div className="operateArea grow  h-0">
-              <div ref={messageRef}>true</div>
-              <button className="ml-2" onClick={() => videoPlay()}>
-                play
-              </button>
-            </div>
-            <div className="coverArea grow  h-0">
-              <Calipers {...getCalipersParams()} />
-              {/* <Calipers 
-                                currentTime={currentTime} 
-                                duration={videoBasicParams ? videoBasicParams.format.duration : 0} 
-                                handleChangeTime={handleChangeCalipersTime} 
-                            /> */}
-            </div>
-          </div>
+          <LeftUploadist
+            ffmpegOperate={ffmpegOperateRef.current!}
+            fileList={fileList}
+            setNewFileList={setFileList}
+            setDragData={setDragData}
+          />
+          <OperatePage
+            ffmpegOperate={ffmpegOperateRef.current!}
+            fileList={fileList}
+            dragData={dragData}
+            setNewFileList={setFileList}
+          />
         </Fragment>
       ) : (
         <div>loading</div>
