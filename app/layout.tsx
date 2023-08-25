@@ -10,11 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  console.log(inter);
   return (
-    <html lang="en">
+    <html style={{ fontSize: 14 }} lang="en">
       <body>
-        <main className="flex flex-1 flex-col">
+        <main className="flex flex-1 flex-col overflow-hidden">
           <div className="flex justify-center items-center h-20 border-b border-black border-solid">header</div>
           <div className="mainControlArea flex-1">{children}</div>
         </main>

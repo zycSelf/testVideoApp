@@ -20,3 +20,21 @@ export function generateTime(time) {
 export function isFloat() {
   return true;
 }
+export function generateMMSSTime(time) {
+  // time: s
+  let current = time;
+  let MM = '00';
+  let SS = '00';
+  if (time > 60) {
+    MM = Math.floor(current / 60);
+    current = current % 60;
+  }
+  SS = current;
+  if (typeof MM === 'number' && MM < 10) {
+    MM = '0' + MM;
+  }
+  if (typeof SS === 'number' && SS < 10) {
+    SS = '0' + SS;
+  }
+  return MM + ':' + SS;
+}

@@ -45,14 +45,7 @@ export default function VideoView() {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [play, setPlay] = useState<boolean>(false);
   useEffect(() => {
-    if (loaded) {
-      if (videoRef.current) {
-        const video = videoRef.current;
-        video.addEventListener('timeupdate', async () => {
-          setCurrentTime(getCurrentTime() as number);
-        });
-      }
-    } else {
+    if (!loaded) {
       console.count('initial');
       initFFmpeg();
     }
@@ -151,12 +144,8 @@ export default function VideoView() {
     if (!isWriten && file) {
       await ffmpeg.writeFile(filename, await fetchFile(file));
       await ffmpeg.writeFileFFprobe(filename, await fetchFile(file));
-      const data = (await ffmpeg.readFile(filename)) as Uint8Array;
-      const url = getUrl(data, { type: 'video/mp4' });
-      videoRef.current.src = url;
     } else {
       const fileData = await ffmpeg.readFile(filename);
-      console.log(fileData);
       await ffmpeg.writeFileFFprobe(filename, fileData);
     }
   };
@@ -164,6 +153,10 @@ export default function VideoView() {
     await ffmpeg.deleteFile(fileName);
     await ffmpeg.deleteFFprobeDir(fileName);
     console.log('delete done');
+  };
+  const setVideo = (binary: Uint8Array) => {
+    const url = getUrl(binary, { type: 'video/mp4' });
+    videoRef.current.src = url;
   };
   const addFileListData = async (ffmpeg: FFmpeg, filename: string, file: File) => {
     const basicParams = await ffmpeg.getVideoBasicParams(filename);
@@ -197,28 +190,62 @@ export default function VideoView() {
     }
   };
   const videoPlay = () => {
+    if (!videoRef.current?.src) {
+      return;
+    }
     if (videoRef.current) {
-      updateCurrentTime();
       setPlay(true);
+      updateCurrentTime();
       videoRef.current.play();
+    }
+  };
+  const videoStop = () => {
+    if (videoRef.current) {
+      setPlay(false);
+      videoRef.current.pause();
     }
   };
   const updateCurrentTime = () => {
     const video = videoRef.current;
-    if (video && !video.ended) {
+    if (video) {
       const currentTime = videoRef.current?.currentTime;
       setCurrentTime(currentTime);
-      requestAnimationFrame(updateCurrentTime);
-    } else {
-      setPlay(false);
+      if (!video.ended) {
+        requestAnimationFrame(updateCurrentTime);
+      }
+    }
+  };
+  const handleGetVideo = () => {
+    const video = videoRef.current;
+    if (video) {
+      return video.src;
+    }
+    return null;
+  };
+  const handleSetVideo = async (data: ActiveFileListItem, currentTime?: number) => {
+    const video = videoRef.current;
+    if (video) {
+      const videoData = (await ffmpegRef.current.readFile(data.filename)) as Uint8Array;
+      setVideo(videoData);
+      if (currentTime) {
+        video.currentTime = currentTime;
+      }
+      if (play) {
+        videoPlay();
+      }
     }
   };
   const getCalipersParams = () => {
     return {
+      isPlay: play,
       dragData,
       currentTime,
       handleChangeCalipersTime,
       handleSplitImage,
+      handleGetVideo,
+      handleSetVideo,
+      handlePlayVideo: videoPlay,
+      handleStopVideo: videoStop,
     };
   };
   const handleSplitImage = async (file: ActiveFileListItem, splitTime: number): Promise<ActiveFileListItem> => {
