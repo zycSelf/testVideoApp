@@ -80,6 +80,9 @@ export class FFmpeg {
           case FFMessageType.ERROR:
             this.#rejects[id](data);
             break;
+          case FFMessageType.OFF_SCREEN_CANVAS:
+            console.log(data);
+            break;
         }
         delete this.#resolves[id];
         delete this.#rejects[id];
@@ -410,5 +413,21 @@ export class FFmpeg {
       type: FFMessageType.GET_KEYFRAME_LIST,
       data: { path },
     }) as Promise<FFMessageKeyFrameListData>;
+  };
+
+  public offScreenCanvas = async (canvas: OffscreenCanvas): Promise<any> => {
+    return this.#send(
+      {
+        type: FFMessageType.OFF_SCREEN_CANVAS,
+        data: canvas,
+      },
+      [canvas],
+    );
+  };
+  public renderOffscreenCanvas = async (videoFrame: VideoFrame): Promise<any> => {
+    return this.#send({
+      type: FFMessageType.RENDER_OFF_SCREEN_CANVAS,
+      data: videoFrame,
+    });
   };
 }

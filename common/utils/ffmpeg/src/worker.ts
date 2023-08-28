@@ -27,10 +27,7 @@ import type {
 } from './types';
 import { CORE_URL, FFMessageType } from './const';
 import { ERROR_UNKNOWN_MESSAGE_TYPE, ERROR_NOT_LOADED, ERROR_IMPORT_FAILURE } from './errors';
-import createFFmpegCore from '@/public/core/ffmpeg/esm/ffmpeg-core';
-import createFFprobeCore from '@/public/core/ffprobe/esm/ffprobe-core';
 import type { Log, FFmpegCoreModule, FFmpegCoreModuleFactory } from '@/app/common/utils/types/types';
-import { param } from 'ts-interface-checker';
 
 declare global {
   interface WorkerGlobalScope {
@@ -46,11 +43,11 @@ interface ImportedFFmpegCoreModuleFactory {
 let ffmpeg: FFmpegCoreModule;
 let ffprobe: FFmpegCoreModule;
 let ffprobeLogger: Array<any> = [];
-
+let offscreenCanvas: OffscreenCanvas | null = null;
 const clearFfprobeLogger = () => {
   ffprobeLogger = [];
 };
-
+const preName = '/data/';
 const load = async ({
   coreURL: _coreURL = CORE_URL,
   wasmURL: _wasmURL,
@@ -116,12 +113,19 @@ const load = async ({
   return first;
 };
 
+const sync = () => {
+  ffmpeg.FS.syncfs(false, () => {
+    //
+  });
+};
+
 const exec = ({ args, timeout = -1 }: FFMessageExecData): ExitCode => {
   ffmpeg.setTimeout(timeout);
   ffmpeg.exec(...args);
   console.log('ffmpeg ', ...args);
   const ret = ffmpeg.ret;
   ffmpeg.reset();
+  sync();
   return ret;
 };
 
@@ -136,6 +140,7 @@ const execFFprobe = ({ args, timeout = -1 }: FFMessageExecData): ExitCode => {
 
 const writeFile = ({ path, data }: FFMessageWriteFileData): OK => {
   ffmpeg.FS.writeFile(path, data);
+  sync();
   return true;
 };
 
@@ -146,12 +151,18 @@ const writeFileFFprobe = ({ path, data }: FFMessageWriteFileData): OK => {
   return true;
 };
 
-const readFile = ({ path, encoding }: FFMessageReadFileData): FileData => ffmpeg.FS.readFile(path, { encoding });
+const readFile = ({ path, encoding }: FFMessageReadFileData): FileData => {
+  // const db = indexedDB.open('data');
+  const data = ffmpeg.FS.readFile(path, { encoding });
+  sync();
+  return data;
+};
 const readFileFFprobe = ({ path, encoding }: FFMessageReadFileData): FileData =>
   ffprobe.FS.readFile(path, { encoding });
 // TODO: check if deletion works.
 const deleteFile = ({ path }: FFMessageDeleteFileData): OK => {
   ffmpeg.FS.unlink(path);
+  sync();
   return true;
 };
 const deleteFFprobeFile = ({ path }: FFMessageDeleteFileData): OK => {
@@ -160,12 +171,14 @@ const deleteFFprobeFile = ({ path }: FFMessageDeleteFileData): OK => {
 };
 const rename = ({ oldPath, newPath }: FFMessageRenameData): OK => {
   ffmpeg.FS.rename(oldPath, newPath);
+  sync();
   return true;
 };
 
 // TODO: check if creation works.
 const createDir = ({ path }: FFMessageCreateDirData): OK => {
   ffmpeg.FS.mkdir(path);
+  sync();
   return true;
 };
 
@@ -183,6 +196,7 @@ const listDir = ({ path }: FFMessageListDirData): FSNode[] => {
 // TODO: check if deletion works.
 const deleteDir = ({ path }: FFMessageDeleteDirData): OK => {
   ffmpeg.FS.rmdir(path);
+  sync();
   return true;
 };
 const deleteFFprobeDir = ({ path }: FFMessageDeleteDirData): OK => {
@@ -192,7 +206,6 @@ const deleteFFprobeDir = ({ path }: FFMessageDeleteDirData): OK => {
 
 const getVideoBasicParams = ({ path }: FFMessageGetBasicParams): FFMessageVideoBasicParams => {
   const file = ffprobe.FS.readFile(path, { encoding: 'binary' });
-  console.log(file);
   const args = [
     '-v',
     'error',
@@ -201,19 +214,19 @@ const getVideoBasicParams = ({ path }: FFMessageGetBasicParams): FFMessageVideoB
     '-show_entries',
     'stream=width,height',
     '-show_entries',
-    'format=duration,size,filename',
+    'format=duration,size,filename,codedHeight,codedWidth,colorSpace',
     '-of',
     'json',
   ].concat(path);
   ffprobe.setTimeout(-1);
   const params = ffprobe.exec(...args);
   const check = checkLogger(ffprobeLogger);
-  console.log(check);
   if (!check.status) {
     throw new Error(JSON.stringify(check));
   }
   const logger = check.data as Log[];
   const jsonData = logger.map((log) => log.message).join('');
+  console.log(JSON.parse(jsonData));
   ffprobe.reset();
   return JSON.parse(jsonData);
 };
@@ -248,7 +261,6 @@ const getKeyFrameList = (path: string): FFMessageFrameList => {
 const getKeyFrameImageList = (path: string, count: number, encoding = 'binary'): Array<Uint8Array> => {
   const outputPath = '/keyframeImagePath';
   const outputPathBinary = ffmpeg.FS.mkdir(outputPath) as any;
-  console.log(outputPath);
   const args = [
     '-i',
     path,
@@ -300,7 +312,20 @@ function checkLogger(data: Array<Log>) {
     };
   }
 }
-
+function generateOffscreenCanvas(canvas: OffscreenCanvas) {
+  if (canvas) {
+    offscreenCanvas = canvas;
+  }
+}
+function renderOffscreenCanvas(videoFrame: VideoFrame) {
+  console.log(videoFrame);
+  if (offscreenCanvas) {
+    const ctx = offscreenCanvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(videoFrame, 0, 0, videoFrame.displayWidth, videoFrame.displayHeight);
+    }
+  }
+}
 self.onmessage = async ({ data: { id, type, data: _data } }: FFMessageEvent): Promise<void> => {
   const trans = [];
   let data: CallbackData;
@@ -357,6 +382,10 @@ self.onmessage = async ({ data: { id, type, data: _data } }: FFMessageEvent): Pr
       case FFMessageType.GET_KEYFRAME_LIST:
         data = getKeyFrameInfoList(_data as FFMessageGetBasicParams);
         break;
+      case FFMessageType.OFF_SCREEN_CANVAS:
+        data = generateOffscreenCanvas(_data as OffscreenCanvas);
+      case FFMessageType.RENDER_OFF_SCREEN_CANVAS:
+        data = renderOffscreenCanvas(_data as VideoFrame);
       default:
         throw ERROR_UNKNOWN_MESSAGE_TYPE;
     }

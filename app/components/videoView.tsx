@@ -21,9 +21,6 @@ export interface VideoFileData {
   params: FFMessageVideoBasicParams;
   firstPicBlobUrl: string;
   status: string;
-  picBlobUrlMap: {
-    [key: string]: Array<PicBlobUrl>;
-  };
 }
 export interface DragData {
   type: string;
@@ -38,12 +35,19 @@ export interface FFmpegOperate {
   deleteFileFFprobe: (path: string) => Promise<boolean>;
   deleteDir: (path: string) => Promise<boolean>;
   deleteDirFFprobe: (path: string) => Promise<boolean>;
-  getPicByTime: (filename: string, time: number) => Promise<FileData>;
+  getPicByTime: (filename: string, time: number, scale: { width: number; height: number }) => Promise<FileData>;
   getVideoBasicParams: (path: string) => Promise<FFMessageVideoBasicParams>;
   handleFFmpegLog: (cb: (message: string) => void) => void;
   handleFFmpegProgress: (cb: (progressData: LogEvent) => void) => void;
-  splitTimeSharingImage: (file: VideoFileData, timeSharingArr: Array<TimeSharing>) => Promise<VideoFileData>;
+  generateScreenCanvas: (canvas: OffscreenCanvas) => Promise<void>;
+  renderScreenCanvas: (videoFrame: VideoFrame) => Promise<void>;
+  // splitTimeSharingImage: (file: VideoFileData, timeSharingArr: Array<TimeSharing>) => Promise<VideoFileData>;
 }
+
+export const fileDir = {
+  local: '/data/',
+};
+
 export default function VideoView() {
   const ffmpegRef = useRef<FFmpeg>(new FFmpeg());
   const workRef = useRef<Array<string>>([]);
@@ -82,16 +86,16 @@ export default function VideoView() {
       cb && cb(progressData);
     });
   };
-  const getPicByTime = async (filename: string, time: number) => {
+  const getPicByTime = async (filename: string, time: number, scale: { width: number; height: number }) => {
     const ffmpeg = ffmpegRef.current;
     const hmsTime = generateTime(time);
-    console.log(filename, time);
-    const name = `image${new Date().getTime()}.png`;
+    const fileName = fileDir.local + filename;
+    const name = fileDir.local + `image${new Date().getTime()}.png`;
     const args = [
       '-ss',
       hmsTime,
       '-i',
-      filename,
+      fileName,
       // '-vf',
       // 'select='+'eq(pict_type'+'\\,'+'I)',
       // `scale=${videoBasicParams?.params.format.size}`,
@@ -107,80 +111,97 @@ export default function VideoView() {
     ];
     await ffmpeg.exec(args);
     const fileData = await ffmpeg.readFile(name);
-    deleteFile(name);
+    await ffmpeg.deleteFile(name);
     return fileData;
   };
   const readFile = async (filename: string): Promise<FileData> => {
-    const fileData = await ffmpegRef.current.readFile(filename);
+    const fileName = fileDir.local + filename;
+    const fileData = await ffmpegRef.current.readFile(fileName);
     return fileData;
   };
   const readFileFFprobe = async (filename: string): Promise<FileData> => {
-    const fileData = await ffmpegRef.current.readFileFFprobe(filename);
+    const fileName = filename;
+    const fileData = await ffmpegRef.current.readFileFFprobe(fileName);
     return fileData;
   };
   const writeFile = async (filename: string, data: FileData): Promise<boolean> => {
-    const boolean = await ffmpegRef.current.writeFile(filename, data);
+    const fileName = fileDir.local + filename;
+    const boolean = await ffmpegRef.current.writeFile(fileName, data);
     return boolean;
   };
   const writeFileFFprobe = async (filename: string, data: FileData): Promise<boolean> => {
-    const boolean = await ffmpegRef.current.writeFileFFprobe(filename, data);
+    const fileName = filename;
+    const boolean = await ffmpegRef.current.writeFileFFprobe(fileName, data);
     return boolean;
   };
   const deleteFile = async (path: string): Promise<boolean> => {
-    const boolean = await ffmpegRef.current.deleteFile(path);
+    const localPath = fileDir.local + path;
+    const boolean = await ffmpegRef.current.deleteFile(localPath);
     return boolean;
   };
   const deleteFileFFprobe = async (path: string): Promise<boolean> => {
-    const boolean = await ffmpegRef.current.deleteFFprobeFile(path);
+    const localPath = path;
+    const boolean = await ffmpegRef.current.deleteFFprobeFile(localPath);
     return boolean;
   };
   const deleteDir = async (path: string): Promise<boolean> => {
-    const boolean = await ffmpegRef.current.deleteDir(path);
+    const localPath = fileDir.local + path;
+    const boolean = await ffmpegRef.current.deleteDir(localPath);
     return boolean;
   };
   const deleteDirFFprobe = async (path: string): Promise<boolean> => {
-    const boolean = await ffmpegRef.current.deleteFFprobeDir(path);
+    const localPath = path;
+    const boolean = await ffmpegRef.current.deleteFFprobeDir(localPath);
     return boolean;
   };
   const getVideoBasicParams = async (path: string): Promise<FFMessageVideoBasicParams> => {
-    const basicFileData = await ffmpegRef.current.getVideoBasicParams(path);
+    const localPath = path;
+    const basicFileData = await ffmpegRef.current.getVideoBasicParams(localPath);
     return basicFileData;
   };
-  const splitTimeSharingImage = async (
-    file: VideoFileData,
-    timeSharingArr: Array<TimeSharing>,
-  ): Promise<VideoFileData> => {
-    const picBlobUrlMap: {
-      [key: string]: Array<PicBlobUrl>;
-    } = {};
-    for (let i = 0; i < timeSharingArr.length; i++) {
-      const timeSharing = timeSharingArr[i];
-      const { level, time } = timeSharing;
-      const splitTime = time / 2;
-      const count = Math.ceil(file.duration);
-      const filename = file.filename;
-      let currentTime = 0;
-      picBlobUrlMap[level] = [];
-      const getPic = async (filename: string, time: number) => {
-        const picBinary = await getPicByTime(filename, time);
-        const picBlobUrl = getUrl(picBinary);
-        picBlobUrlMap[level].push({
-          id: new Date().getTime().toString(),
-          time: currentTime,
-          value: picBlobUrl,
-        });
-        currentTime += splitTime / 1000;
-        if (currentTime < count) {
-          await getPic(filename, currentTime / 1000);
-        }
-      };
-      await getPic(filename, currentTime / 1000);
-      picBlobUrlMap[level].sort((a, b) => a.time - b.time);
-    }
-    file.picBlobUrlMap = picBlobUrlMap;
-    return file;
+  const generateScreenCanvas = async (canvas: OffscreenCanvas): Promise<void> => {
+    await ffmpegRef.current.offScreenCanvas(canvas);
   };
+  const renderScreenCanvas = async (videoFrame: VideoFrame): Promise<void> => {
+    await ffmpegRef.current.renderOffscreenCanvas(videoFrame);
+  };
+  // const splitTimeSharingImage = async (
+  //   file: VideoFileData,
+  //   timeSharingArr: Array<TimeSharing>,
+  // ): Promise<VideoFileData> => {
+  //   const picBlobUrlMap: {
+  //     [key: string]: Array<PicBlobUrl>;
+  //   } = {};
+  //   for (let i = 0; i < timeSharingArr.length; i++) {
+  //     const timeSharing = timeSharingArr[i];
+  //     const { level, time } = timeSharing;
+  //     const splitTime = time / 2;
+  //     const count = Math.ceil(file.duration);
+  //     const filename = file.filename;
+  //     let currentTime = 0;
+  //     picBlobUrlMap[level] = [];
+  //     const getPic = async (filename: string, time: number) => {
+  //       const picBinary = await getPicByTime(filename, time);
+  //       const picBlobUrl = getUrl(picBinary);
+  //       picBlobUrlMap[level].push({
+  //         id: new Date().getTime().toString(),
+  //         time: currentTime,
+  //         value: picBlobUrl,
+  //       });
+  //       currentTime += splitTime / 1000;
+  //       if (currentTime < count) {
+  //         await getPic(filename, currentTime / 1000);
+  //       }
+  //     };
+  //     await getPic(filename, currentTime / 1000);
+  //     picBlobUrlMap[level].sort((a, b) => a.time - b.time);
+  //   }
+  //   file.picBlobUrlMap = picBlobUrlMap;
+  //   return file;
+  // };
   const operate = {
+    generateScreenCanvas,
+    renderScreenCanvas,
     readFile,
     readFileFFprobe,
     writeFile,
@@ -193,7 +214,7 @@ export default function VideoView() {
     getVideoBasicParams,
     handleFFmpegLog,
     handleFFmpegProgress,
-    splitTimeSharingImage,
+    // splitTimeSharingImage,
   };
 
   return (

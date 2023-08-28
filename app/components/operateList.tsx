@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
 import { Calipers } from './divCalipers';
 import { VideoFileData, DragData, FFmpegOperate } from './videoView';
 import { getUrl } from '@/app/utils/getBlobUrl';
+import { VideoPlayer } from './videoPlay';
 
 interface OperatePageProps {
   ffmpegOperate: FFmpegOperate;
@@ -68,54 +69,19 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
         if (file.status === 'idle') {
           return {
             ...file,
-            status: 'loading',
+            status: 'done',
           };
         } else {
           return file;
         }
       });
       setNewFileList(newFileList);
-      idleFileList.forEach((file) => {
-        ffmpegOperate.splitTimeSharingImage(file, Object.values(defaultTimeSharing)).then((doneFile) => {
-          setNewFileList((prevFileList: Array<VideoFileData>) => {
-            const newFileList = prevFileList.map((file) => {
-              if (file.id === doneFile.id) {
-                return {
-                  ...doneFile,
-                  status: 'done',
-                };
-              } else {
-                return file;
-              }
-            });
-            return newFileList;
-          });
-          setActiveFileList((prevActiveFileList: Array<ActiveFileListItem>) => {
-            const newActiveFileList = prevActiveFileList.map((file) => {
-              if (file.bindId === doneFile.id) {
-                return {
-                  ...doneFile,
-                  status: 'done',
-                  id: file.id,
-                  bindId: file.bindId,
-                };
-              } else {
-                return file;
-              }
-            });
-            return newActiveFileList;
-          });
-        });
-      });
     }
   }, [fileList]);
   //handleActive
   useEffect(() => {
     if (activeFileList.length > 0) {
       const file = activeFileList[activeFileList.length - 1];
-      if (!handleGetVideo()) {
-        handleSetVideo(file, 0);
-      }
       setAllTime((prevAllTime: number) => prevAllTime + file.duration);
     }
   }, [activeFileList]);
@@ -124,7 +90,7 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
       const now = elapsedTime + currentTime;
       setCaliperCurrent(elapsedTime + currentTime);
       if (now === allTime) {
-        videoStop();
+        setPlay(false);
       }
       if (
         activeFileList[activeVideoIndex] &&
@@ -132,19 +98,17 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
         currentTime === activeFileList[activeVideoIndex].duration
       ) {
         setElapsedTime(elapsedTime + activeFileList[activeVideoIndex].duration);
-        handleSetVideo(activeFileList[activeVideoIndex + 1]);
         setActiveVideoIndex(activeVideoIndex + 1);
       }
     }
   }, [currentTime]);
   useEffect(() => {
     if (play) {
-        console.log(caliperCurrent,allTime)
+      console.log(caliperCurrent, allTime);
       if (caliperCurrent === allTime) {
         setElapsedTime(0);
         setCaliperCurrent(0);
         if (activeFileList.length > 0) {
-          handleSetVideo(activeFileList[0], 0);
           setActiveVideoIndex(0);
         }
       }
@@ -155,59 +119,6 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
     const count = Math.ceil(time / timeSharing.time) + 1;
     console.log(allTime);
   }, [allTime]);
-  // video operations
-  const videoPlay = () => {
-    if (!videoRef.current?.src) {
-      return;
-    }
-    if (videoRef.current) {
-      setPlay(true);
-      updateCurrentTime();
-      videoRef.current.play();
-    }
-  };
-  const videoStop = () => {
-    if (videoRef.current) {
-      setPlay(false);
-      videoRef.current.pause();
-    }
-  };
-  const handleGetVideo = () => {
-    const video = videoRef.current;
-    if (video) {
-      return video.src;
-    }
-    return null;
-  };
-  const handleSetVideo = async (data: ActiveFileListItem, currentTime?: number) => {
-    const video = videoRef.current;
-    if (video) {
-      const videoData = (await ffmpegOperate.readFile(data.filename)) as Uint8Array;
-      setVideo(videoData);
-      if (currentTime) {
-        video.currentTime = currentTime;
-      }
-      if (play) {
-        videoPlay();
-      }
-    }
-  };
-  const updateCurrentTime = () => {
-    const video = videoRef.current;
-    if (video) {
-      const currentTime = videoRef.current?.currentTime;
-      setCurrentTime(currentTime);
-      if (!video.ended) {
-        requestAnimationFrame(updateCurrentTime);
-      }
-    }
-  };
-  const setVideo = (binary: Uint8Array) => {
-    const url = getUrl(binary, { type: 'video/mp4' });
-    if (videoRef.current) {
-      videoRef.current.src = url;
-    }
-  };
   // activeVideo
 
   // calipersCB
@@ -230,13 +141,26 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
   return (
     <div className="controlArea flex h-full w-full flex-col">
       <div className="videoArea flex justify-center grow-[2] h-0">
-        <video className="w-auto h-full" ref={videoRef}></video>
+        <VideoPlayer
+          play={play}
+          currentTime={currentTime}
+          activeVideoItem={activeFileList[activeVideoIndex]}
+          setPlay={setPlay}
+          setCurrentTime={setCurrentTime}
+          offscreenCanvas={ffmpegOperate.generateScreenCanvas}
+          renderOffscreenCanvas={ffmpegOperate.renderScreenCanvas}
+        />
       </div>
       <div className="operateArea grow  h-0">
         <div className="w-full h-12 flex justify-center items-center border border-gray" ref={messageRef}>
           message
         </div>
-        <button className="ml-2" onClick={() => videoPlay()}>
+        <button
+          className="ml-2"
+          onClick={() => {
+            setPlay(true);
+          }}
+        >
           play
         </button>
       </div>

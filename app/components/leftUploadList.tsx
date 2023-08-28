@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useRef, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
 import { VideoDisplayPic } from './videoDisplay';
 import { DragData, FFmpegOperate, VideoFileData } from './videoView';
 import { getUrl } from '@/app/utils/getBlobUrl';
@@ -35,7 +35,7 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
       await ffmpegOperate.writeFileFFprobe(filename, await fetchFile(file));
     } else {
       let fileData;
-
+      console.log(filename);
       fileData = await ffmpegOperate.readFile(filename);
       if (!fileData) {
         fileData = await ffmpegOperate.readFileFFprobe(filename);
@@ -57,8 +57,6 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
   const addFileListData = async (filename: string, file: File) => {
     const basicParams = await ffmpegOperate.getVideoBasicParams(filename);
     const currentTime = 0;
-    const firstPicBinary = (await ffmpegOperate.getPicByTime(filename, currentTime)) as Uint8Array;
-    const firstPicBlobUrl = getUrl(firstPicBinary, { type: 'image/png' });
     const id = new Date().getTime().toString();
     const startTime = 0;
     const duration = Number(basicParams.format.duration);
@@ -67,6 +65,8 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
       width: basicParams.streams[0].width,
       height: basicParams.streams[0].height,
     };
+    const firstPicBinary = (await ffmpegOperate.getPicByTime(filename, currentTime, scale)) as Uint8Array;
+    const firstPicBlobUrl = getUrl(firstPicBinary, { type: 'image/png' });
     const status = 'idle';
     const picBlobUrlMap: {
       [key: string]: Array<PicBlobUrl>;
