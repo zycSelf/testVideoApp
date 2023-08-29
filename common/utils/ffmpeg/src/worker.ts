@@ -24,6 +24,7 @@ import type {
   FFMessageKeyFrameList,
   FFMessageVideoBasicParams,
   FFMessageFrameList,
+  RenderProps,
 } from './types';
 import { CORE_URL, FFMessageType } from './const';
 import { ERROR_UNKNOWN_MESSAGE_TYPE, ERROR_NOT_LOADED, ERROR_IMPORT_FAILURE } from './errors';
@@ -317,15 +318,36 @@ function generateOffscreenCanvas(canvas: OffscreenCanvas) {
     offscreenCanvas = canvas;
   }
 }
-function renderOffscreenCanvas(videoFrame: VideoFrame) {
-  console.log(videoFrame);
-  if (offscreenCanvas) {
+function renderOffscreenCanvas({ imageBitMap, renderSize }: RenderProps) {
+  if (offscreenCanvas && imageBitMap) {
     const ctx = offscreenCanvas.getContext('2d');
+    offscreenCanvas.width = imageBitMap.width;
+    offscreenCanvas.height = imageBitMap.height;
+    console.log(imageBitMap);
     if (ctx) {
-      ctx.drawImage(videoFrame, 0, 0, videoFrame.displayWidth, videoFrame.displayHeight);
+      ctx.clearRect(0, 0, imageBitMap.width, imageBitMap.height);
+      ctx.drawImage(imageBitMap, 0, 0, imageBitMap.width, imageBitMap.height);
+      // const imageData = ctx.getImageData(0, 0, imageBitMap.width, imageBitMap.height);
+      // const newData = filter(imageData, ctx);
+      // ctx.putImageData(newData, 0, 0, 0, 0, imageBitMap.width, imageBitMap.height);
     }
   }
 }
+function filter(imageData, ctx) {
+  const imageData_length = imageData.data.length / 4; // 4个为一个像素
+  for (let i = 0; i < imageData_length; i++) {
+    // imageData.data[i * 4 + 0] = 0;  // 红色值不变
+    imageData.data[i * 4 + 1] = 0; // 绿色值设置为0
+    imageData.data[i * 4 + 2] = 0; // 蓝色值设置为0
+  }
+  return imageData;
+}
+// function generateCanvasSize = (
+//   basicSize: { width: number; height: number },
+//   renderSize: { width: number; height: number },
+// ) => {
+
+// }
 self.onmessage = async ({ data: { id, type, data: _data } }: FFMessageEvent): Promise<void> => {
   const trans = [];
   let data: CallbackData;
@@ -385,7 +407,7 @@ self.onmessage = async ({ data: { id, type, data: _data } }: FFMessageEvent): Pr
       case FFMessageType.OFF_SCREEN_CANVAS:
         data = generateOffscreenCanvas(_data as OffscreenCanvas);
       case FFMessageType.RENDER_OFF_SCREEN_CANVAS:
-        data = renderOffscreenCanvas(_data as VideoFrame);
+        data = renderOffscreenCanvas(_data as ImageBitmap);
       default:
         throw ERROR_UNKNOWN_MESSAGE_TYPE;
     }

@@ -1,8 +1,10 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
 import { Calipers } from './divCalipers';
-import { VideoFileData, DragData, FFmpegOperate } from './videoView';
+import { VideoFileData, DragData, FFmpegOperate, fileDir } from './videoView';
 import { getUrl } from '@/app/utils/getBlobUrl';
 import { VideoPlayer } from './videoPlay';
+import { getDBData } from '../utils/dbActions';
+import { downloadFile } from '../utils/download';
 
 interface OperatePageProps {
   ffmpegOperate: FFmpegOperate;
@@ -46,6 +48,13 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
   const [play, setPlay] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const messageRef = useRef<HTMLDivElement>(null);
+  const [exportFile, setExportFile] = useState<{
+    status: string;
+    data: Uint8Array | null;
+  }>({
+    status: 'idle',
+    data: null,
+  });
   // activeVideo
   const [timeSharing, setTimeSharing] = useState<TimeSharing>(defaultTimeSharing.lv1); // 2s 1s 0.5s 0.2s
   const [activeFileList, setActiveFileList] = useState<Array<ActiveFileListItem>>([]);
@@ -138,8 +147,49 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
       videoRef.current.currentTime = time;
     }
   };
+  const handleExportFile = () => {
+    setPlay(false);
+    setExportFile({
+      status: 'start',
+      data: null,
+    });
+  };
+  const exportFileData = async (basicScale: { width: number; height: number }) => {
+    const execList: Array<Array<string>> = [];
+    const tsList: Array<string> = [];
+    activeFileList.map((item, index) => {
+      const scale = item.scale;
+      if (scale.width === basicScale.width && scale.height === basicScale.height) {
+        const args: Array<string> = [
+          '-i',
+          `${fileDir.local + item.filename}`,
+          `${fileDir.local}outputExport_${index}.ts`,
+        ];
+        execList.push(args);
+        tsList.push(`${fileDir.local}outputExport_${index}.ts`);
+      }
+      // todo 添加其他可能 暂时粗略做测试数据 优化处理逻辑
+      if (scale.width < basicScale.width && scale.height > basicScale.height) {
+        const resultWidth = Math.floor(scale.width * (basicScale.height / scale.height));
+        const resultHeight = basicScale.height;
+        const offsetX = basicScale.width / 2 - resultWidth / 2;
+        const offsetY = 0;
+        const vf = `scale=${resultWidth}x${resultHeight},pad=${basicScale.width}:${basicScale.height}:${offsetX}:${offsetY}`;
+        const args: Array<string> = [
+          '-i',
+          `${fileDir.local + item.filename}`,
+          '-vf',
+          vf,
+          `${fileDir.local}outputExport_${index}.ts`,
+        ];
+        execList.push(args);
+        tsList.push(`${fileDir.local}outputExport_${index}.ts`);
+      }
+    });
+    await ffmpegOperate.generateExported(execList, tsList);
+  };
   return (
-    <div className="controlArea flex h-full w-full flex-col">
+    <div className="controlArea flex h-full flex-1 w-0 flex-col">
       <div className="videoArea flex justify-center grow-[2] h-0">
         <VideoPlayer
           play={play}
@@ -149,19 +199,40 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
           setCurrentTime={setCurrentTime}
           offscreenCanvas={ffmpegOperate.generateScreenCanvas}
           renderOffscreenCanvas={ffmpegOperate.renderScreenCanvas}
+          exportFile={exportFile}
+          exportFileData={exportFileData}
         />
       </div>
-      <div className="operateArea grow  h-0">
+      <div className="operateArea h-24 shrink-0 ">
         <div className="w-full h-12 flex justify-center items-center border border-gray" ref={messageRef}>
           message
         </div>
+        <p>
+          {currentTime + elapsedTime} / {allTime}
+        </p>
         <button
           className="ml-2"
           onClick={() => {
             setPlay(true);
           }}
         >
-          play
+          play: {play.toString()}
+        </button>
+        <button
+          className="ml-2"
+          onClick={() => {
+            downloadFile('1.test.mp4');
+          }}
+        >
+          下载
+        </button>
+        <button
+          className="ml-2"
+          onClick={() => {
+            handleExportFile();
+          }}
+        >
+          导出
         </button>
       </div>
       <div className="coverArea grow  h-0">

@@ -75,6 +75,7 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
       id,
       file,
       filename,
+      firstPicBinary,
       firstPicBlobUrl,
       startTime,
       endTime,

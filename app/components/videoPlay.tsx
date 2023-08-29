@@ -10,34 +10,49 @@ interface VideoPlayerProps {
   activeVideoItem: ActiveFileListItem;
   setPlay: Dispatch<SetStateAction<boolean>>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
-  offscreenCanvas: (canvas: OffScreenCanvas) => Promise<void>;
-  renderOffscreenCanvas: (videoFrame: VideoFrame) => Promise<void>;
+  offscreenCanvas: (canvas: OffscreenCanvas) => Promise<void>;
+  renderOffscreenCanvas: (imageBitMap: ImageBitmap, renderSize: { width: number; height: number }) => Promise<void>;
+  exportFile: { status: string; data: Uint8Array | null };
+  exportFileData: (basic: { width: number; height: number }) => void;
 }
 export const VideoPlayer = ({
   currentTime,
   play,
   activeVideoItem,
+  setPlay,
   setCurrentTime,
   offscreenCanvas,
   renderOffscreenCanvas,
+  exportFile,
+  exportFileData,
 }: VideoPlayerProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const calcuRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(document.createElement('video'));
-  const [videoValue, setVideoValue] = useState<Uint8Array>(null);
-  const [basicScale, setBasicScale] = useState<{ width: number; height: number } | null>(null);
+  const [basicSize, setBasicSize] = useState<{ width: number; height: number } | null>(null);
+  const [basicScale, setBasicScale] = useState<{ width: number; height: number }>({
+    width: 1920,
+    height: 1080,
+  });
+  const [offset, setOffset] = useState<{
+    x: number;
+    y: number;
+  }>({
+    x: 0,
+    y: 0,
+  });
   useEffect(() => {
     if (activeVideoItem) {
       getDBData(fileDir.local + activeVideoItem.filename).then((data) => {
         if (data) {
           const contents = data.contents as Uint8Array;
-          setVideoValue(contents);
           const url = getUrl(contents, { type: 'video/mp4' });
           const video = videoRef.current;
           if (video) {
             video.src = url;
-            if (!basicScale) {
+            if (!basicSize || !basicScale) {
               setBasicScale(activeVideoItem.scale);
+              setBasicSize(generateCanvasSize(activeVideoItem.scale));
               // initCanvas(activeVideoItem.scale);
               transControl();
             }
@@ -52,35 +67,43 @@ export const VideoPlayer = ({
   useEffect(() => {
     if (play) {
       videoPlay();
+    } else {
+      videoStop();
     }
   }, [play]);
+  useEffect(() => {
+    if (exportFile.status === 'start') {
+      exportFileData(basicScale);
+    }
+  }, [exportFile]);
   const videoPlay = () => {
     const video = videoRef.current;
     if (video) {
       video.play();
-      updateCurrentTime();
+      video.onended = () => {
+        setCurrentTime(video.currentTime);
+      };
+      video.requestVideoFrameCallback(updateCanvas);
     }
   };
-  const updateCurrentTime = () => {
+  const videoStop = () => {
     const video = videoRef.current;
     if (video) {
-      const currentTime = videoRef.current?.currentTime;
-      setCurrentTime(currentTime);
-      if (!video.ended || play) {
-        video.requestVideoFrameCallback((frame, metaData) => {
-          console.log(frame, metaData);
-          console.log(videoValue);
-          if (videoValue) {
-            const videoFrame = new VideoFrame(videoValue, {
-              timestamp: 2,
-              codedWidth: 320,
-              codedHeight: 200,
-              format: 'RGBA',
-            });
-            renderOffscreenCanvas(videoFrame);
-          }
-
-          updateCurrentTime();
+      video.pause();
+    }
+  };
+  const updateCanvas = (now, metadata) => {
+    const video = videoRef.current;
+    if (video) {
+      const videoCurrentTime = videoRef.current?.currentTime;
+      setCurrentTime(videoCurrentTime);
+      if (!video.ended && play) {
+        const video = videoRef.current;
+        createImageBitmap(video).then((data) => {
+          const canvas = canvasRef.current;
+          generateImageSizeAndPosBeforeRender(data);
+          renderOffscreenCanvas(data, basicSize!);
+          video.requestVideoFrameCallback(updateCanvas);
         });
       }
     }
@@ -89,34 +112,69 @@ export const VideoPlayer = ({
     const canvas = canvasRef.current;
     if (canvas) {
       const OSCanvas = canvas.transferControlToOffscreen();
-      console.log(OSCanvas);
       offscreenCanvas(OSCanvas);
     }
   };
-  const initCanvas = (data: typeof basicScale) => {
+  const generateCanvasSize = ({ width, height }: { width: number; height: number }) => {
+    const calcuBox = calcuRef.current;
     const canvas = canvasRef.current;
-    console.log(basicScale);
-    if (data && canvas) {
-      canvas.width = data.width;
-      canvas.height = data.height;
-      canvas.style.width = data.width + 'px';
-      canvas.style.height = data.height + 'px';
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // ctx.drawImage(activeVideoItem.firstPicBlobUrl, 0, 0, canvas.width, canvas.height);
+    const basicScale = width / height;
+    if (calcuBox && canvas) {
+      let size;
+      const boxWidth = calcuBox.offsetWidth;
+      const boxHeight = calcuBox.offsetHeight;
+      if (width > height) {
+        size = {
+          width: boxWidth,
+          height: boxWidth / basicScale,
+        };
+      } else {
+        size = {
+          width: boxHeight * basicScale,
+          height: boxHeight,
+        };
       }
+      return size;
+    } else {
+      return null;
     }
   };
-  //   const generateCanvasSize() {
-
-  //   }
-  const canvasDraw = () => {
+  const generateImageSizeAndPosBeforeRender = (data: ImageBitmap) => {
+    const imageSize = {
+      width: data.width,
+      height: data.height,
+    };
+    // TODO
+    const imageWidthBigger = imageSize.width >= activeVideoItem.scale.width;
+    const imageHeightBigger = imageSize.height >= activeVideoItem.scale.height;
     const canvas = canvasRef.current;
-    const video = videoRef.current;
-    if (canvas && video) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    if (canvas) {
+      if (imageWidthBigger && imageHeightBigger) {
+        if (imageSize.width > imageSize.height) {
+          canvas.style.setProperty('height', '100%');
+          canvas.style.removeProperty('width');
+        } else {
+          canvas.style.setProperty('width', '100%');
+          canvas.style.removeProperty('height');
+        }
+      }
+      if (imageWidthBigger || imageHeightBigger) {
+        if (imageWidthBigger) {
+          canvas.style.setProperty('width', '100%');
+          canvas.style.removeProperty('height');
+        }
+        if (imageHeightBigger) {
+          canvas.style.setProperty('height', '100%');
+          canvas.style.removeProperty('width');
+        }
+      }
+      if (!imageWidthBigger && !imageHeightBigger) {
+        const scaleWidth = activeVideoItem.scale.width / imageSize.width;
+        const scaleHeight = activeVideoItem.scale.height / imageSize.height;
+        if (basicSize) {
+          canvas.style.setProperty('height', basicSize.height / scaleHeight + 'px');
+          canvas.style.setProperty('height', basicSize.width / scaleWidth + 'px');
+        }
       }
     }
   };
@@ -148,8 +206,14 @@ export const VideoPlayer = ({
   //     }
   //   };
   return (
-    <div ref={calcuRef} className="w-full h-full relative">
-      <canvas ref={canvasRef} />
+    <div className="w-full h-full relative flex justify-center items-center overflow-hidden">
+      <div
+        ref={calcuRef}
+        style={basicSize ? basicSize : {}}
+        className="w-full h-full relative flex justify-center items-center bg-black overflow-hidden"
+      >
+        <canvas ref={canvasRef} className="" />
+      </div>
     </div>
   );
 };

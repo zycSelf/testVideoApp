@@ -424,10 +424,13 @@ export class FFmpeg {
       [canvas],
     );
   };
-  public renderOffscreenCanvas = async (videoFrame: VideoFrame): Promise<any> => {
+  public renderOffscreenCanvas = async (
+    imageBitMap: ImageBitmap,
+    renderSize: { width: number; height: number },
+  ): Promise<any> => {
     return this.#send({
       type: FFMessageType.RENDER_OFF_SCREEN_CANVAS,
-      data: videoFrame,
+      data: { imageBitMap, renderSize },
     });
   };
 }

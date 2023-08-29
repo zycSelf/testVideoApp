@@ -6,6 +6,8 @@ import { generateTime } from '@/app/utils//generateTime';
 import { LeftUploadist } from './leftUploadList';
 import { OperatePage, PicBlobUrl, TimeSharing } from './operateList';
 import { getUrl } from '../utils/getBlobUrl';
+import { getDBData } from '../utils/dbActions';
+import { downloadFile } from '../utils/download';
 
 export interface VideoFileData {
   id: string;
@@ -20,6 +22,7 @@ export interface VideoFileData {
   duration: number;
   params: FFMessageVideoBasicParams;
   firstPicBlobUrl: string;
+  firstPicBinary: Uint8Array;
   status: string;
 }
 export interface DragData {
@@ -40,7 +43,8 @@ export interface FFmpegOperate {
   handleFFmpegLog: (cb: (message: string) => void) => void;
   handleFFmpegProgress: (cb: (progressData: LogEvent) => void) => void;
   generateScreenCanvas: (canvas: OffscreenCanvas) => Promise<void>;
-  renderScreenCanvas: (videoFrame: VideoFrame) => Promise<void>;
+  renderScreenCanvas: (imageBitMap: ImageBitmap, renderSize: { width: number; height: number }) => Promise<void>;
+  generateExported: (argsList: Array<Array<string>>, outputList: Array<string>) => any;
   // splitTimeSharingImage: (file: VideoFileData, timeSharingArr: Array<TimeSharing>) => Promise<VideoFileData>;
 }
 
@@ -162,8 +166,24 @@ export default function VideoView() {
   const generateScreenCanvas = async (canvas: OffscreenCanvas): Promise<void> => {
     await ffmpegRef.current.offScreenCanvas(canvas);
   };
-  const renderScreenCanvas = async (videoFrame: VideoFrame): Promise<void> => {
-    await ffmpegRef.current.renderOffscreenCanvas(videoFrame);
+  const renderScreenCanvas = async (
+    imageBitMap: ImageBitmap,
+    renderSize: { width: number; height: number },
+  ): Promise<void> => {
+    await ffmpegRef.current.renderOffscreenCanvas(imageBitMap, renderSize);
+  };
+  const generateExported = async (argsList: Array<Array<string>>, outputList: Array<string>) => {
+    console.log(argsList, outputList);
+    for (let i = 0; i < argsList.length; i++) {
+      await ffmpegRef.current.exec(argsList[i]);
+    }
+    const concat = 'concat:' + outputList.reduce((a, b) => a + b + '|', '');
+    const exportName = `${fileDir.local}export.mp4`;
+    const concatArg = ['-i', concat, '-c', 'copy', '-vcodec', 'libx264', exportName];
+    await ffmpegRef.current.exec(concatArg);
+    const data = (await ffmpegRef.current.readFile(exportName)) as Uint8Array;
+    console.log(data);
+    downloadFile(exportName, data);
   };
   // const splitTimeSharingImage = async (
   //   file: VideoFileData,
@@ -214,6 +234,7 @@ export default function VideoView() {
     getVideoBasicParams,
     handleFFmpegLog,
     handleFFmpegProgress,
+    generateExported,
     // splitTimeSharingImage,
   };
 

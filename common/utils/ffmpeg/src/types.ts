@@ -140,6 +140,10 @@ export interface ProgressEvent {
   time: number;
 }
 
+export interface RenderProps {
+  imageBitMap: ImageBitmap;
+  renderSize: { width: number; height: number };
+}
 export type ExitCode = number;
 export type ErrorMessage = string;
 export type FileData = Uint8Array | string;
