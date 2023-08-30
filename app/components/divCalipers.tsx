@@ -72,7 +72,7 @@ export const Calipers = ({
             style={{ width: `${rem}rem` }}
             className="w-16 h-full flex flex-col select-none overflow-hidden bg-videoCaliperBG shrink-0"
           >
-            <div className="header text-xs h-4">
+            <div className="header text-xs h-4 ">
               <span className="m-4">{file.filename}</span>
               <span className="m-4">{generateTime(file.duration)}</span>
             </div>

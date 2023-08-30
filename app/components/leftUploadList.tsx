@@ -36,7 +36,8 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
     } else {
       let fileData;
       console.log(filename);
-      fileData = await ffmpegOperate.readFile(filename);
+      fileData = (await ffmpegOperate.readFile(filename)) as Uint8Array;
+
       if (!fileData) {
         fileData = await ffmpegOperate.readFileFFprobe(filename);
         await ffmpegOperate.writeFile(filename, fileData);

@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html style={{ fontSize: 14 }} lang="en">
       <body>
         <main className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex justify-center items-center h-20 border-b border-black border-solid">header</div>
+          <div className="flex justify-center items-center h-20 bg-basicBgColor col-white">header</div>
           <div className="mainControlArea flex-1">{children}</div>
         </main>
       </body>
