@@ -10,6 +10,7 @@ interface VideoPlayerProps {
   activeVideoItem: ActiveFileListItem;
   setPlay: Dispatch<SetStateAction<boolean>>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
+  videoPlayDone: (id: string) => void;
   offscreenCanvas: (canvas: OffscreenCanvas) => Promise<void>;
   renderOffscreenCanvas: (imageBitMap: ImageBitmap, renderSize: { width: number; height: number }) => Promise<void>;
   exportFile: { status: string; data: Uint8Array | null };
@@ -21,6 +22,7 @@ export const VideoPlayer = ({
   activeVideoItem,
   setPlay,
   setCurrentTime,
+  videoPlayDone,
   offscreenCanvas,
   renderOffscreenCanvas,
   exportFile,
@@ -29,6 +31,7 @@ export const VideoPlayer = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const calcuRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(document.createElement('video'));
+  const video2Ref = useRef<HTMLVideoElement>(document.createElement('video'));
   const [basicSize, setBasicSize] = useState<{ width: number; height: number } | null>(null);
   const [basicScale, setBasicScale] = useState<{ width: number; height: number }>({
     width: 1920,
@@ -81,7 +84,7 @@ export const VideoPlayer = ({
     if (video) {
       video.play();
       video.onended = () => {
-        setCurrentTime(video.currentTime);
+        videoPlayDone(activeVideoItem.id);
       };
       video.requestVideoFrameCallback(updateCanvas);
     }
@@ -96,7 +99,7 @@ export const VideoPlayer = ({
     const video = videoRef.current;
     if (video) {
       const videoCurrentTime = videoRef.current?.currentTime;
-      setCurrentTime(videoCurrentTime);
+      setCurrentTime(Number(videoCurrentTime.toFixed(3)));
       if (!video.ended && play) {
         const video = videoRef.current;
         createImageBitmap(video).then((data) => {
@@ -213,6 +216,7 @@ export const VideoPlayer = ({
         className="w-full h-full relative flex justify-center items-center bg-black overflow-hidden"
       >
         <canvas ref={canvasRef} className="" />
+        <canvas id="testWasmRender" className="" />
       </div>
     </div>
   );

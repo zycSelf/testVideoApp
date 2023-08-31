@@ -3,7 +3,7 @@ import { VideoDisplayPic } from './videoDisplay';
 import { DragData, FFmpegOperate, VideoFileData } from './videoView';
 import { getUrl } from '@/app/utils/getBlobUrl';
 import { fetchFile } from '@/common/utils/util/src';
-import { FileData } from '@/common/utils/ffmpeg/src/types';
+import { FFMessageKeyFrameList, FileData } from '@/common/utils/ffmpeg/src/types';
 import { PicBlobUrl } from './operateList';
 
 interface UploadListProps {
@@ -25,14 +25,27 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
     }
   };
   const uploadFileInfo = async (filename: string, isWriten: boolean, file: File) => {
-    await writeAndDel(filename, file);
+    const fileCount = filename.split('.');
+    const transname = fileCount
+      .map((item, index) => {
+        if (index === fileCount.length - 1) {
+          return 'ts';
+        } else {
+          return item;
+        }
+      })
+      .join('.');
     console.log('writeAndDelDone');
-    await addFileListData(filename, file);
+    await writeAndTranscode(filename, file, transname);
+    await addFileListData(filename, file, transname);
   };
-  const writeAndDel = async (filename: string, file: File) => {
+  const writeAndTranscode = async (filename: string, file: File, transname: string) => {
     if (file) {
       await ffmpegOperate.writeFile(filename, await fetchFile(file));
       await ffmpegOperate.writeFileFFprobe(filename, await fetchFile(file));
+      await ffmpegOperate.transcoding(filename, transname);
+      const tsData = await ffmpegOperate.readFile(transname);
+      await ffmpegOperate.writeFileFFprobe(transname, tsData);
     } else {
       let fileData;
       console.log(filename);
@@ -55,8 +68,18 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
       });
     }
   };
-  const addFileListData = async (filename: string, file: File) => {
-    const basicParams = await ffmpegOperate.getVideoBasicParams(filename);
+  const addFileListData = async (filename: string, file: File, transname: string) => {
+    const basicParams = await ffmpegOperate.getVideoBasicParams(transname);
+    // const frameList = await ffmpegOperate.getKeyFrameList(transname);
+    // const frameImageList = [];
+    // for (let i = 0; i < frameList.frameList.length; i++) {
+    //   const frameData = frameList.frameList[i] as FFMessageKeyFrameList;
+    //   const frame = await ffmpegOperate.getPicByTime(transname, Number(frameData.pts_time), {
+    //     width: frameData.width,
+    //     height: frameData.height,
+    //   });
+    //   frameImageList.push(frame);
+    // }
     const currentTime = 0;
     const id = new Date().getTime().toString();
     const startTime = 0;
@@ -76,6 +99,7 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
       id,
       file,
       filename,
+      transname,
       firstPicBinary,
       firstPicBlobUrl,
       startTime,

@@ -142,8 +142,6 @@ const execFFprobe = ({ args, timeout = -1 }: FFMessageExecData): ExitCode => {
 const writeFile = ({ path, data }: FFMessageWriteFileData): OK => {
   ffmpeg.FS.writeFile(path, data);
   sync();
-  const ptr = ffmpeg.getFrame();
-
   return true;
 };
 
@@ -255,7 +253,7 @@ const getKeyFrameList = (path: string): FFMessageFrameList => {
   }
   const framesData: any = generateJsonData(loggerCheck.data);
   const keyFrameList: Array<any> = framesData.frames.filter((frame: any) => frame.key_frame === 1);
-  const frameList = framesData;
+  const frameList = framesData.frames;
   return {
     frameList,
     keyFrameList,
@@ -291,11 +289,9 @@ const getKeyFrameImageList = (path: string, count: number, encoding = 'binary'):
 };
 const getKeyFrameInfoList = ({ path }: FFMessageGetBasicParams): FFMessageKeyFrameListData => {
   const { frameList, keyFrameList } = getKeyFrameList(path);
-  const keyFrameImageList = getKeyFrameImageList(path, keyFrameList.length);
   return {
     frameList,
     keyFrameList,
-    keyFrameImageList,
   };
 };
 function generateJsonData(data: Array<Log>) {

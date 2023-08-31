@@ -1,7 +1,7 @@
 'use client';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { FFmpeg } from '@/common/utils/ffmpeg/src';
-import { FFMessageVideoBasicParams, FileData, LogEvent } from '@/common/utils/ffmpeg/src/types';
+import { FFMessageFrameList, FFMessageVideoBasicParams, FileData, LogEvent } from '@/common/utils/ffmpeg/src/types';
 import { generateTime } from '@/app/utils//generateTime';
 import { LeftUploadist } from './leftUploadList';
 import { OperatePage, PicBlobUrl, TimeSharing } from './operateList';
@@ -13,6 +13,7 @@ export interface VideoFileData {
   id: string;
   file: File;
   filename: string;
+  transname: string;
   startTime: number;
   endTime: number;
   scale: {
@@ -45,6 +46,8 @@ export interface FFmpegOperate {
   generateScreenCanvas: (canvas: OffscreenCanvas) => Promise<void>;
   renderScreenCanvas: (imageBitMap: ImageBitmap, renderSize: { width: number; height: number }) => Promise<void>;
   generateExported: (argsList: Array<Array<string>>, outputList: Array<string>) => any;
+  getKeyFrameList: (filename: string) => Promise<FFMessageFrameList>;
+  transcoding: (filename: string, transname: string) => Promise<boolean>;
   // splitTimeSharingImage: (file: VideoFileData, timeSharingArr: Array<TimeSharing>) => Promise<VideoFileData>;
 }
 
@@ -78,6 +81,11 @@ export default function VideoView() {
     });
     setLoaded(true);
   };
+  const transcoding = async (filename: string, transname: string) => {
+    const arg = ['-i', fileDir.local + filename, '-an', fileDir.local + transname];
+    const ret = await ffmpegRef.current.exec(arg);
+    return ret;
+  };
   const handleFFmpegLog = (cb: (message: string) => void) => {
     const ffmpeg = ffmpegRef.current;
     ffmpeg.on('log', ({ message }) => {
@@ -94,7 +102,7 @@ export default function VideoView() {
     const ffmpeg = ffmpegRef.current;
     const hmsTime = generateTime(time);
     const fileName = fileDir.local + filename;
-    const name = fileDir.local + `image${new Date().getTime()}.png`;
+    const name = fileDir.local + `image.png`;
     const args = [
       '-ss',
       hmsTime,
@@ -172,6 +180,10 @@ export default function VideoView() {
   ): Promise<void> => {
     await ffmpegRef.current.renderOffscreenCanvas(imageBitMap, renderSize);
   };
+  const getKeyFrameList = async (filename: string) => {
+    const frameList = await ffmpegRef.current.getKeyFrameList(filename);
+    return frameList;
+  };
   const generateExported = async (argsList: Array<Array<string>>, outputList: Array<string>) => {
     console.log(argsList, outputList);
     for (let i = 0; i < argsList.length; i++) {
@@ -235,6 +247,8 @@ export default function VideoView() {
     handleFFmpegLog,
     handleFFmpegProgress,
     generateExported,
+    getKeyFrameList,
+    transcoding,
     // splitTimeSharingImage,
   };
 

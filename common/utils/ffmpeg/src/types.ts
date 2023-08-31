@@ -95,7 +95,6 @@ export interface FFMessageKeyFrameList {
 export interface FFMessageKeyFrameListData {
   frameList: FFMessageKeyFrameList[];
   keyFrameList: FFMessageKeyFrameList[];
-  keyFrameImageList: Uint8Array[];
 }
 
 /**

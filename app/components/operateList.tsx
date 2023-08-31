@@ -188,6 +188,12 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
     });
     await ffmpegOperate.generateExported(execList, tsList);
   };
+  const handleVideoPlayDone = (id: string) => {
+    const activeVideo = activeFileList.find((item) => item.id === id);
+    if (activeVideo) {
+      setCurrentTime(activeVideo.duration);
+    }
+  };
   return (
     <div className="controlArea flex h-full flex-1 w-0 flex-col">
       <div className="videoArea flex justify-center grow-[2] h-0">
@@ -199,6 +205,7 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
           setCurrentTime={setCurrentTime}
           offscreenCanvas={ffmpegOperate.generateScreenCanvas}
           renderOffscreenCanvas={ffmpegOperate.renderScreenCanvas}
+          videoPlayDone={handleVideoPlayDone}
           exportFile={exportFile}
           exportFileData={exportFileData}
         />
@@ -221,7 +228,7 @@ export const OperatePage = ({ ffmpegOperate, fileList, setNewFileList, dragData 
         <button
           className="ml-2"
           onClick={() => {
-            downloadFile('1.test.mp4');
+            // downloadFile('1.test.mp4');
           }}
         >
           下载
