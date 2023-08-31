@@ -142,6 +142,8 @@ const execFFprobe = ({ args, timeout = -1 }: FFMessageExecData): ExitCode => {
 const writeFile = ({ path, data }: FFMessageWriteFileData): OK => {
   ffmpeg.FS.writeFile(path, data);
   sync();
+  const ptr = ffmpeg.getFrame();
+
   return true;
 };
 
