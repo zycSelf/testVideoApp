@@ -43,9 +43,9 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
     if (file) {
       await ffmpegOperate.writeFile(filename, await fetchFile(file));
       await ffmpegOperate.writeFileFFprobe(filename, await fetchFile(file));
-      await ffmpegOperate.transcoding(filename, transname);
-      const tsData = await ffmpegOperate.readFile(transname);
-      await ffmpegOperate.writeFileFFprobe(transname, tsData);
+      // await ffmpegOperate.transcoding(filename, transname);
+      // const tsData = await ffmpegOperate.readFile(transname);
+      // await ffmpegOperate.writeFileFFprobe(transname, tsData);
     } else {
       let fileData;
       console.log(filename);
@@ -69,7 +69,7 @@ export const LeftUploadist = ({ fileList, ffmpegOperate, setNewFileList, setDrag
     }
   };
   const addFileListData = async (filename: string, file: File, transname: string) => {
-    const basicParams = await ffmpegOperate.getVideoBasicParams(transname);
+    const basicParams = await ffmpegOperate.getVideoBasicParams(filename);
     // const frameList = await ffmpegOperate.getKeyFrameList(transname);
     // const frameImageList = [];
     // for (let i = 0; i < frameList.frameList.length; i++) {

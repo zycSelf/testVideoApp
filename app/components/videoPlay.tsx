@@ -86,6 +86,7 @@ export const VideoPlayer = ({
       video.onended = () => {
         videoPlayDone(activeVideoItem.id);
       };
+      requestAnimationFrame(updateCurrent);
       video.requestVideoFrameCallback(updateCanvas);
     }
   };
@@ -95,20 +96,24 @@ export const VideoPlayer = ({
       video.pause();
     }
   };
+  const updateCurrent = () => {
+    console.log(123);
+    const videoCurrentTime = videoRef.current?.currentTime;
+    setCurrentTime(Number(videoCurrentTime.toFixed(3)));
+    setPlay((prevPlay) => {
+      if (prevPlay) requestAnimationFrame(updateCurrent);
+      return prevPlay;
+    });
+  };
   const updateCanvas = (now, metadata) => {
     const video = videoRef.current;
-    if (video) {
-      const videoCurrentTime = videoRef.current?.currentTime;
-      setCurrentTime(Number(videoCurrentTime.toFixed(3)));
-      if (!video.ended && play) {
-        const video = videoRef.current;
-        createImageBitmap(video).then((data) => {
-          const canvas = canvasRef.current;
-          generateImageSizeAndPosBeforeRender(data);
-          renderOffscreenCanvas(data, basicSize!);
-          video.requestVideoFrameCallback(updateCanvas);
-        });
-      }
+    if (video && !video.ended) {
+      const video = videoRef.current;
+      createImageBitmap(video).then((data) => {
+        generateImageSizeAndPosBeforeRender(data);
+        renderOffscreenCanvas(data, basicSize!);
+      });
+      video.requestVideoFrameCallback(updateCanvas);
     }
   };
   const transControl = () => {
@@ -216,7 +221,6 @@ export const VideoPlayer = ({
         className="w-full h-full relative flex justify-center items-center bg-black overflow-hidden"
       >
         <canvas ref={canvasRef} className="" />
-        <canvas id="testWasmRender" className="" />
       </div>
     </div>
   );

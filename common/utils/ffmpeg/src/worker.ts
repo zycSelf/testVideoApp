@@ -325,6 +325,7 @@ function renderOffscreenCanvas({ imageBitMap, renderSize }: RenderProps) {
     if (ctx) {
       ctx.clearRect(0, 0, imageBitMap.width, imageBitMap.height);
       ctx.drawImage(imageBitMap, 0, 0, imageBitMap.width, imageBitMap.height);
+      imageBitMap.close();
       // const imageData = ctx.getImageData(0, 0, imageBitMap.width, imageBitMap.height);
       // const newData = filter(imageData, ctx);
       // ctx.putImageData(newData, 0, 0, 0, 0, imageBitMap.width, imageBitMap.height);
